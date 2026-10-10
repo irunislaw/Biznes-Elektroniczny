@@ -1,0 +1,51 @@
+# Sekrety i konfiguracja lokalna
+.env
+.env.*
+!.env.example
+deploy/certs/
+*.pem
+*.key
+*.crt
+
+# Zależności
+vendor/
+node_modules/
+.venv/
+venv/
+
+# Cache
+cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Uploady i dane sklepu
+upload/
+uploads/
+download/
+
+# Pełny zbiór zdjęć (w repo tylko do 20 przykładów, reszta w Releases)
+scraper-results/images/
+*.zip
+*.tar.gz
+
+# Kopie zapasowe
+backups/
+
+# Logi
+logs/
+*.log
+
+# Raporty testów
+tests/test-results/
+tests/playwright-report/
+tests/blob-report/
+tests/playwright/.cache/
+
+# IDE i system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
