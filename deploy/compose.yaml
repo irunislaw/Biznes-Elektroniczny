@@ -1,0 +1,50 @@
+name: biznes-elektroniczny
+
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+  prestashop:
+    image: prestashop/prestashop:8.2.8-8.1-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${SHOP_PORT}:80"
+    environment:
+      DB_SERVER: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWD: ${DB_PASSWORD}
+      PS_INSTALL_AUTO: "1"
+      PS_DOMAIN: localhost:${SHOP_PORT}
+      PS_LANGUAGE: pl
+      PS_COUNTRY: pl
+      PS_FOLDER_ADMIN: ${PS_FOLDER_ADMIN}
+      PS_ENABLE_SSL: "0"
+      ADMIN_MAIL: ${ADMIN_MAIL}
+      ADMIN_PASSWD: ${ADMIN_PASSWORD}
+    volumes:
+      - shop_data:/var/www/html
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT}:8025"
+volumes:
+  db_data:
+  shop_data:
