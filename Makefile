@@ -1,8 +1,17 @@
 COMPOSE = docker compose --env-file .env -f deploy/compose.yaml
 
-.PHONY: up down init logs reset
 
-up:
+OPENSSL_IMAGE = alpine/openssl:3.5.8
+export MSYS_NO_PATHCONV = 1
+ifneq ($(OS),Windows_NT)
+DOCKER_USER = --user $(shell id -u):$(shell id -g)
+endif
+
+.PHONY: up down init logs reset certs
+
+certs:
+		docker run --rm $(DOCKER_USER) -v "$(CURDIR):/work" -w /work --entrypoint sh $(OPENSSL_IMAGE) deploy/scripts/gen-cert.sh
+up: certs
 		$(COMPOSE) up -d 
 down: 
 		$(COMPOSE) down 
