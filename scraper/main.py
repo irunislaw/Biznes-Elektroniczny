@@ -1,37 +1,51 @@
 import json
 import time
+from datetime import datetime
+from urllib import robotparser
 
 import config
 import requests
 from bs4 import BeautifulSoup
 
-links = []
+links = set()
 page_counter = 1
 
+# Ustawienie parsera na plik robots.txt
+rp = robotparser.RobotFileParser()
+rp.set_url(config.SHOP_URL + "/robots.txt")
+rp.read()
+
+session = requests.Session()
+session.headers.update({"User-Agent": config.USER_AGENT})
+
+last_request = 0
+
 while True:
-    time_start = time.time()
-    page = requests.get(config.SHOP_URL + f"?page={page_counter}")
+    page_url = config.SCRAPER_START_URL + f"?page={page_counter}"
+
+    # Sprawdzenie czy robots.txt pozwala na scrapowanie strony
+    if not rp.can_fetch(config.USER_AGENT, page_url):
+        print(f"Strona: {page_url} zablokowana przez robots.txt")
+        break
+
+    wait = (1 / config.REQUESTS_PER_SECOND) - (time.time() - last_request)
+    if wait > 0:
+        time.sleep(wait)
+    last_request = time.time()
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}: {page_url}")
+    page = session.get(page_url)
     soup = BeautifulSoup(page.content, "html.parser")
-    print(config.SHOP_URL + f"?page={page_counter}")
 
-    if page.status_code != requests.codes.ok:
+    links_HTML = soup.select("a.product-thumbnail")
+
+    for link in links_HTML:
+        links.add(link.get("href"))
+
+    # Jeżeli nie ma przycisku przeniesienia do następnej strony to kończymy scrapowanie
+    if not soup.select("a[rel='next']"):
         break
-
-    linksHTML = soup.find_all("a", "thumbnail", "product-thumbnail")
-    if not linksHTML:
-        break
-
-    for link in linksHTML:
-        links.append(link.get("href"))
-
-    time_end = time.time()
-
-    elapsed_time = time_end - time_start
-
-    if elapsed_time < 0.5:
-        time.sleep(0.5 - elapsed_time)
 
     page_counter += 1
 
-with open("../scraper-results/result.json", "w") as file:
-    json.dump(links, file)
+with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
+    json.dump(list(links), file)
