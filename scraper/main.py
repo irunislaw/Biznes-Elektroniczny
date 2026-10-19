@@ -1,30 +1,16 @@
 import json
-import time
-from datetime import datetime
-from urllib import robotparser
 
 import config
-import requests
 from bs4 import BeautifulSoup
-
-links = set()
-page_counter = 1
-
-# Ustawienie parsera na plik robots.txt
-rp = robotparser.RobotFileParser()
-rp.set_url(config.SHOP_URL + "/robots.txt")
-rp.read()
-
-session = requests.Session()
-session.headers.update({"User-Agent": config.USER_AGENT})
+from shop_client import ShopClient
 
 
-def find_first_category(session, rp, user_agent, page_url):
-    if not rp.can_fetch(user_agent, page_url):
-        print(f"Strona: {page_url} zablokowana przez robots.txt")
-        return
+def find_first_category_url(client, page_url):
+    page = client.get(page_url)
 
-    page = session.get(page_url)
+    if not page:
+        return None
+
     soup = BeautifulSoup(page.content, "html.parser")
 
     # Najpierw wyciągamy HTML pierwszego linka z kategorią a następnie wyciągamy sam link
@@ -34,61 +20,72 @@ def find_first_category(session, rp, user_agent, page_url):
     return first_category_url
 
 
-def get_all_subcategories_urls(session, page_url):
-    page = session.get(page_url)
+def collect_category_tree(client, page_url):
+    page = client.get(page_url)
+
+    if not page:
+        return None
+
     soup = BeautifulSoup(page.content, "html.parser")
-
-    subcategories = soup.select("li[data-depth='0'] a")
-
     subcategory_urls = []
 
+    subcategories = soup.select("li[data-depth='0']")
+
     if not subcategories:
-        return page_url
+        return [page_url]
 
     for subcategory in subcategories:
-        subcategory_url = subcategory.get("href")
-        url = get_all_subcategories_urls(session, subcategory_url)
+        subcategory_url = subcategory.find("a").get("href")
+        url = collect_category_tree(client, subcategory_url)
 
         if url:
-            subcategory_urls.append(url)
+            subcategory_urls.extend(url)
 
     return subcategory_urls
 
 
-first_category_url = find_first_category(
-    session, rp, config.USER_AGENT, config.SCRAPER_START_URL
-)
+def scrape_category(client, page_url):
 
-subcategories_urls = get_all_subcategories_urls(session, first_category_url)
+    product_urls = set()
+    category_tree = collect_category_tree(client, page_url)
 
-last_request = 0
+    for url in category_tree:
+        products = collect_products(client, url)
+        for product in products:
+            product_urls.add(product)
 
-while True:
-    page_url = config.SCRAPER_START_URL + f"?page={page_counter}"
+    return list(product_urls)
 
-    # Sprawdzenie czy robots.txt pozwala na scrapowanie strony
-    if not rp.can_fetch(config.USER_AGENT, page_url):
-        print(f"Strona: {page_url} zablokowana przez robots.txt")
-        break
 
-    wait = (1 / config.REQUESTS_PER_SECOND) - (time.time() - last_request)
-    if wait > 0:
-        time.sleep(wait)
-    last_request = time.time()
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}: {page_url}")
-    page = session.get(page_url)
-    soup = BeautifulSoup(page.content, "html.parser")
+def collect_products(client, page_url):
+    page_counter = 1
+    links = set()
+    while True:
+        page = client.get(page_url + f"?page={page_counter}")
 
-    links_HTML = soup.select("a.product-thumbnail")
+        if not page:
+            break
 
-    for link in links_HTML:
-        links.add(link.get("href"))
+        soup = BeautifulSoup(page.content, "html.parser")
 
-    # Jeżeli nie ma przycisku przeniesienia do następnej strony to kończymy scrapowanie
-    if not soup.select("a[rel='next']"):
-        break
+        links_html = soup.select("a.product-thumbnail")
 
-    page_counter += 1
+        for link in links_html:
+            links.add(link.get("href"))
+
+        if not soup.select("a[rel='next']"):
+            break
+
+        page_counter += 1
+
+    return list(links)
+
+
+client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
+first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
+links = scrape_category(client, first_category_url)
+
+print(len(links))
 
 with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
-    json.dump(list(links), file)
+    json.dump(links, file)
