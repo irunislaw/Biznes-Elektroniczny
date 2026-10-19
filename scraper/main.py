@@ -34,11 +34,32 @@ def find_first_category(session, rp, user_agent, page_url):
     return first_category_url
 
 
+def get_all_subcategories_urls(session, page_url):
+    page = session.get(page_url)
+    soup = BeautifulSoup(page.content, "html.parser")
+
+    subcategories = soup.select("li[data-depth='0'] a")
+
+    subcategory_urls = []
+
+    if not subcategories:
+        return page_url
+
+    for subcategory in subcategories:
+        subcategory_url = subcategory.get("href")
+        url = get_all_subcategories_urls(session, subcategory_url)
+
+        if url:
+            subcategory_urls.append(url)
+
+    return subcategory_urls
+
+
 first_category_url = find_first_category(
     session, rp, config.USER_AGENT, config.SCRAPER_START_URL
 )
 
-print(first_category_url)
+subcategories_urls = get_all_subcategories_urls(session, first_category_url)
 
 last_request = 0
 
