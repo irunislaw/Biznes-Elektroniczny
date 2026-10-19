@@ -18,6 +18,28 @@ rp.read()
 session = requests.Session()
 session.headers.update({"User-Agent": config.USER_AGENT})
 
+
+def find_first_category(session, rp, user_agent, page_url):
+    if not rp.can_fetch(user_agent, page_url):
+        print(f"Strona: {page_url} zablokowana przez robots.txt")
+        return
+
+    page = session.get(page_url)
+    soup = BeautifulSoup(page.content, "html.parser")
+
+    # Najpierw wyciągamy HTML pierwszego linka z kategorią a następnie wyciągamy sam link
+    first_category_link = soup.select_one("li[data-depth='0'] a")
+    first_category_url = first_category_link.get("href")
+
+    return first_category_url
+
+
+first_category_url = find_first_category(
+    session, rp, config.USER_AGENT, config.SCRAPER_START_URL
+)
+
+print(first_category_url)
+
 last_request = 0
 
 while True:
