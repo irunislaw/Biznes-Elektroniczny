@@ -21,3 +21,6 @@ logs:
 		$(COMPOSE) logs -f prestashop
 reset:
 		$(COMPOSE) down -v
+test:
+		-cd tests && npx playwright test
+		cd tests && npx playwright show-report test-results
