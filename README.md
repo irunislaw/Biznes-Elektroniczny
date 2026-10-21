@@ -18,6 +18,13 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
 
 `make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
 
+# Scraper
+Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`scraper/`](scraper/) i działa niezależnie od kontenerów (wymaga Pythona).
+
+- instalacja, konfiguracja i uruchomienie: [scraper/README.md](scraper/README.md)
+- wyniki: katalog `scraper-results/`
+- uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
+
 # Problemy
 ## `Cannot download language pack "pl"`
 Instalator pobiera polską paczkę językową z `https://i18n.prestashop-project.org`. Jeśli antywirus (Norton, Avast, AVG, ESET…) skanuje ruch HTTPS, podmienia certyfikat i kontener odrzuca połączenie. Instalacja zatrzymuje się w połowie, a sklep zostaje zepsuty: po restarcie w logach widać `PrestaShop Core already installed`, ale nie ma języków ani konta admina.
