@@ -11,35 +11,43 @@ def find_first_category_url(client, page_url):
     if not page:
         return None
 
-    soup = BeautifulSoup(page.content, "html.parser")
+    urls = parse_subcategory_urls(page.content)
 
-    # Najpierw wyciągamy HTML pierwszego linka z kategorią a następnie wyciągamy sam link
-    first_category_link = soup.select_one("li[data-depth='0'] a")
-    first_category_url = first_category_link.get("href")
+    if urls:
+        return urls[0]
 
-    return first_category_url
+    return None
+
+
+def parse_subcategory_urls(html):
+    soup = BeautifulSoup(html, "html.parser")
+    return [li.find("a").get("href") for li in soup.select("li[data-depth='0']")]
+
+
+def parse_product_urls(html):
+    soup = BeautifulSoup(html, "html.parser")
+    urls = [a.get("href") for a in soup.select("a.product-thumbnail")]
+    has_next = bool(soup.select("a[rel='next']"))
+
+    return urls, has_next
 
 
 def collect_category_tree(client, page_url):
     page = client.get(page_url)
 
     if not page:
-        return None
+        return []
 
-    soup = BeautifulSoup(page.content, "html.parser")
     subcategory_urls = []
 
-    subcategories = soup.select("li[data-depth='0']")
+    subcategories = parse_subcategory_urls(page.content)
 
     if not subcategories:
         return [page_url]
 
     for subcategory in subcategories:
-        subcategory_url = subcategory.find("a").get("href")
-        url = collect_category_tree(client, subcategory_url)
-
-        if url:
-            subcategory_urls.extend(url)
+        url = collect_category_tree(client, subcategory)
+        subcategory_urls.extend(url)
 
     return subcategory_urls
 
@@ -59,33 +67,32 @@ def scrape_category(client, page_url):
 
 def collect_products(client, page_url):
     page_counter = 1
-    links = set()
+    links = []
     while True:
         page = client.get(page_url + f"?page={page_counter}")
 
         if not page:
             break
 
-        soup = BeautifulSoup(page.content, "html.parser")
+        product_urls, has_next_page = parse_product_urls(page.content)
+        links.extend(product_urls)
 
-        links_html = soup.select("a.product-thumbnail")
-
-        for link in links_html:
-            links.add(link.get("href"))
-
-        if not soup.select("a[rel='next']"):
+        if not has_next_page:
             break
 
         page_counter += 1
 
-    return list(links)
+    return links
 
 
-client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
-first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
-links = scrape_category(client, first_category_url)
+def main():
+    client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
+    first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
+    links = scrape_category(client, first_category_url)
 
-print(len(links))
+    with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
+        json.dump(links, file)
 
-with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
-    json.dump(links, file)
+
+if __name__ == "__main__":
+    main()
