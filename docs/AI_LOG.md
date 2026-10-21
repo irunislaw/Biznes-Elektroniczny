@@ -25,6 +25,7 @@ Dopisz nowy wiersz na końcu tabeli. Przykład:
 |---|---|---|---|---|---|
 | 2026-10-11, Michał Irek | Claude Opus 5.5 w Claude Code (VS Code) | BE-7: PrestaShop w docker compose, błąd `Cannot download language pack "pl"` | diagnoza: Norton przechwytuje HTTPS, więc instalacja przerywa się w połowie i blokuje ponowną; cel `make reset`, sekcja w README | pierwsza wskazówka, gdzie to wyłączyć w Nortonie, była zbyt ogólna (wyłączone zostało blokowanie elementów śledzących, a nie skanowanie HTTPS) | `openssl s_client` z kontenera pokazał wystawcę „Norton Web/Mail Shield Root”; po zmianie w Nortonie `curl` zwraca HTTP 400 zamiast błędu SSL; po `down -v` i `make up` w logach jest `Installation successful!` |
 | 2026-10-19, Tymon Dera | Claude Opus 5.5 w przeglądarce | BE-9: Napisać szkielet scrapera, jak poradzić sobie z zwiększającą się ilością parametrów w funkcjach | Sugestia na stworzenie klasy `ShopClient` przechowującą istotne parametry (requests.session, robots.txt, itp.)| Brak | Nie dotyczy |
+| 2026-10-21, Tymon Dera | Claude Opus 5.5 w przeglądarce | BE-9: Napisać szkielet scrapera, napisanie readme z instrukcją obsługi scrapera | Gotowy plik `README.md` | Brak | Sprawdziłem poprawność znaczników w pliku `README.md` |
 ## Refleksja zespołu
 
 <!-- Uzupełniamy w sprincie 4, do 1 strony: gdzie AI realnie przyspieszyło pracę, gdzie wprowadziło w błąd i czego zespół musiał się nauczyć sam. Jeśli ktoś nie korzystał z AI, piszemy to tutaj. -->
