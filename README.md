@@ -18,6 +18,16 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
 
 `make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
 
+# Testowanie
+
+`make test` - uruchamia testy E2E sklepu w Playwright i generuje raport HTML z wynikami.
+
+- Uruchamia testy end-to-end w izolowanym kontenerze (nie wymaga instalacji Node.js ani przeglądarek).
+
+- Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
+
+- Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
+
 # Problemy
 ## `Cannot download language pack "pl"`
 Instalator pobiera polską paczkę językową z `https://i18n.prestashop-project.org`. Jeśli antywirus (Norton, Avast, AVG, ESET…) skanuje ruch HTTPS, podmienia certyfikat i kontener odrzuca połączenie. Instalacja zatrzymuje się w połowie, a sklep zostaje zepsuty: po restarcie w logach widać `PrestaShop Core already installed`, ale nie ma języków ani konta admina.
