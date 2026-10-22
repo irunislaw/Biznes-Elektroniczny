@@ -22,5 +22,5 @@ logs:
 reset:
 		$(COMPOSE) down -v
 test:
-		-cd tests && npx playwright test
-		cd tests && npx playwright show-report test-results
+	-$(COMPOSE) exec playwright npx playwright test
+	$(COMPOSE) exec playwright npx playwright show-report --host 0.0.0.0 --port 9323
