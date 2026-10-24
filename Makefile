@@ -16,7 +16,9 @@ up: certs
 down: 
 		$(COMPOSE) down 
 init:
-		@echo "init: brak krokow - konfiguracja sklepu dojdzie w kolejnych ticketach"
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/locale.php
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/taxes.php
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/payments.php
 logs:
 		$(COMPOSE) logs -f prestashop
 reset:
