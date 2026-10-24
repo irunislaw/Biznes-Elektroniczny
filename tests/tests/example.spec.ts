@@ -13,5 +13,7 @@ test('main page loads without errors', async({page}) => {
 
   await expect(page.getByRole('heading', { name: 'Popularne produkty'})).toBeVisible();
 
+  //await page.evaluate(() => {console.error('test error');});
+
   expect(errors).toHaveLength(0);
 });
