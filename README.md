@@ -18,14 +18,18 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
 
 `make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
 
-# Testowanie
+# Scraper
+Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`scraper/`](scraper/) i działa niezależnie od kontenerów (wymaga Pythona).
 
+- instalacja, konfiguracja i uruchomienie: [scraper/README.md](scraper/README.md)
+- wyniki: katalog `scraper-results/`
+- uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
+
+# Testowanie
 `make test` - uruchamia testy E2E sklepu w Playwright i generuje raport HTML z wynikami.
 
 - Uruchamia testy end-to-end w izolowanym kontenerze (nie wymaga instalacji Node.js ani przeglądarek).
-
 - Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
-
 - Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
 
 # Problemy
