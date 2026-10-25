@@ -85,13 +85,39 @@ def collect_products(client, page_url):
     return links
 
 
-def main():
-    client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
-    first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
-    links = scrape_category(client, first_category_url)
+def parse_product(html):
+    soup = BeautifulSoup(html, "html.parser")
 
-    with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
-        json.dump(links, file)
+    data = json.loads(soup.select_one("#product-details")["data-product"])
+
+    breadcrumb = [a.get_text() for a in soup.select("nav.breadcrumb li a span")]
+
+    return {
+        "id": data["id_product"],
+        "name": data["name"],
+        "description": data["description"],
+        "price_brutto": data["price_amount"],
+        "tax_rate": data["rate"],
+        "attributes": data["features"],
+        "url": data["link"],
+        "image_urls": [img["bySize"]["large_default"]["url"] for img in data["images"]],
+        "categories_path": breadcrumb[1:-1],
+        "id_category_default": data["id_category_default"],
+    }
+
+
+def main():
+
+    page = open("tests/fixtures/page-2.html", "rb").read()
+
+    print(parse_product(page))
+
+    # client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
+    # first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
+    # links = scrape_category(client, first_category_url)
+
+    # with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
+    #     json.dump(links, file)
 
 
 if __name__ == "__main__":
