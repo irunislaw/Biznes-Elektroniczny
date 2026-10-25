@@ -2,17 +2,11 @@
 
 require_once '/var/www/html/config/config.inc.php';
 
-
 if ((int) Configuration::get('PS_TAX') !== 1) {
     if (!Configuration::updateValue('PS_TAX', 1)) {
         throw new RuntimeException('Nie udalo sie wlaczyc podatkow');
     }
-
-    echo "Naliczanie VAT: wlaczono\n";
-} else {
-    echo "Naliczanie VAT: juz wlaczone\n";
 }
-
 
 $requiredRates = [23, 8, 5, 0];
 
@@ -32,10 +26,7 @@ foreach ($requiredRates as $rate) {
     if (!$found) {
         throw new RuntimeException("Brak aktywnej stawki VAT $rate%");
     }
-
-    echo "VAT $rate%: istnieje\n";
 }
-
 
 $countryId = (int) Country::getByIso('PL');
 
@@ -82,6 +73,6 @@ foreach ($requiredGroups as $rate => $groupName) {
             "Brak reguly VAT $rate% dla Polski"
         );
     }
-
-    echo "Regula VAT $rate% dla Polski: istnieje\n";
 }
+
+echo "Podatki (VAT): OK\n";

@@ -8,6 +8,7 @@ $settings = [
     'PS_CURRENCY_DEFAULT' => Currency::getIdByIsoCode('PLN'),
 ];
 
+
 foreach ($settings as $key => $id) {
     $id = (int) $id;
 
@@ -16,13 +17,12 @@ foreach ($settings as $key => $id) {
     }
 
     if ((int) Configuration::get($key) === $id) {
-        echo "$key: juz skonfigurowano\n";
         continue;
     }
 
     if (!Configuration::updateValue($key, $id)) {
         throw new RuntimeException("Nie udalo sie ustawic $key");
     }
-
-    echo "$key: ustawiono ID $id\n";
 }
+
+echo "Lokalizacja (PL/PLN): OK\n";
