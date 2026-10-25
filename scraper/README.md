@@ -43,6 +43,15 @@ Każde zapytanie jest logowane na standardowe wyjście z dokładnym czasem:
  
 Odstępy między wpisami pozwalają sprawdzić, że limit zapytań jest przestrzegany (przy 2 zapytaniach/s co najmniej 0,5 s). Logowane są też strony zablokowane przez `robots.txt` oraz odpowiedzi z kodem innym niż 200.
 
+## Testy i lint
+Testy jednostkowe są w `tests/` i nie łączą się ze sklepem. CI uruchamia je w każdym PR razem z `ruff`.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+ruff check .
+```
+
 ## Jak to działa
  
 1. **`ShopClient`** (`shop_client.py`) obsługuje wszystkie zapytania HTTP:

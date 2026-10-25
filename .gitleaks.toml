@@ -1,0 +1,18 @@
+# Konfiguracja gitleaks dla CI (.github/workflows/ci.yml).
+# Domyślne reguły gitleaks plus wyjątki opisane niżej. Każdy nowy wyjątek
+# ma mieć opis, dlaczego trafienie nie jest sekretem.
+
+[extend]
+useDefault = true
+
+# Zapisane strony sklepu źródłowego (fixtures do testów scrapera) zawierają
+# obiekt `var prestashop = {...}` z polami `static_token` i `token`. To tokeny
+# CSRF, które PrestaShop wstawia w każdą publiczną stronę dla anonimowego
+# gościa, a nie dane dostępowe. Wyjątek działa tylko w fixtures i tylko dla
+# tych dwóch pól, więc prawdziwy klucz w tych plikach nadal zostanie wykryty.
+[[allowlists]]
+description = "Publiczne tokeny CSRF PrestaShopa w zapisanych stronach sklepu"
+condition = "AND"
+paths = ['''^scraper/tests/fixtures/.*\.html$''']
+regexTarget = "match"
+regexes = ['''(static_)?token":"[0-9a-f]{32}"''']
