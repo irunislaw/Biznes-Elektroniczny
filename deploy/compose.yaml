@@ -39,6 +39,7 @@ services:
     volumes:
       - shop_data:/var/www/html
       - ./apache/forwarded-https.conf:/etc/apache2/conf-enabled/forwarded-https.conf:ro
+      - ./config:/opt/prestashop-config:ro
   mailpit:
     image: axllent/mailpit:v1.31
     restart: unless-stopped

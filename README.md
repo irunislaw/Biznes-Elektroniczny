@@ -10,7 +10,7 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
 1. Sklonuj repozytorium i wejdź do jego katalogu.
 2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`).
 3. `make up`, a postęp instalacji śledź przez `make logs`. Pierwszy start trwa kilka minut; gotowe, gdy w logach pojawi się `-- Installation successful! --`.
-4. `make init` (na razie nic nie konfiguruje, kroki dojdą w kolejnych ticketach).
+4. `make init` automatycznie konfiguruje język, walutę, podatki, płatności i pocztę sklepu.
 5. Adresy:
    - sklep: http://localhost:8080
    - panel administracyjny: http://localhost:8080/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
