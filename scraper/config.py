@@ -3,3 +3,4 @@ USER_AGENT = "gitarasiema-scraper (https://github.com/irunislaw/Biznes-Elektroni
 SAVE_PATH = "../scraper-results/results.json"
 SCRAPER_START_URL = "https://gitara-sklep.pl/2-katalog-produktow-gitara-no1"
 REQUESTS_PER_SECOND = 2
+FIXTURES_PATH = "tests/fixtures"
