@@ -16,6 +16,14 @@ up: certs
 down: 
 		$(COMPOSE) down 
 init:
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/locale.php
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/taxes.php
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/payments.php
+		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/mail.php
+		$(COMPOSE) exec -T prestashop php /var/www/html/bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
+		$(COMPOSE) exec -T -u www-data prestashop mkdir -p /var/www/html/themes/classic/mails
+		$(COMPOSE) exec -T prestashop php /var/www/html/bin/console prestashop:mail:generate modern pl-PL /var/www/html/themes/classic/mails /var/www/html/themes/classic/modules --overwrite=1
+		$(COMPOSE) exec -T -u root prestashop chown -R www-data:www-data /var/www/html/var/cache/prod
 		$(COMPOSE) exec -T prestashop php /opt/import/init_webservice.php
 logs:
 		$(COMPOSE) logs -f prestashop
