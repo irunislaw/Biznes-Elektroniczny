@@ -1,9 +1,9 @@
 import json
 import os
 import time
-import urllib3
 
 import requests
+import urllib3
 from dotenv import load_dotenv
 
 # Local Webservice configuration
@@ -123,12 +123,8 @@ def set_stock(product_id, quantity):
 with open("data.json", encoding="utf-8") as file:
     product = json.load(file)
 
-parent_category_id = create_category(
-    PARENT_CATEGORY_NAME, PARENT_CATEGORY_LINK, HOME_CATEGORY_ID
-)
-subcategory_id = create_category(
-    product["category_name"], product["category"], parent_category_id
-)
+parent_category_id = create_category(PARENT_CATEGORY_NAME, PARENT_CATEGORY_LINK, HOME_CATEGORY_ID)
+subcategory_id = create_category(product["category_name"], product["category"], parent_category_id)
 print("Category:", parent_category_id, "| Subcategory:", subcategory_id)
 
 # Measure product creation, image uploads and stock update
