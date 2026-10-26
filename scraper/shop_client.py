@@ -1,8 +1,10 @@
+import logging
 import time
-from datetime import datetime
 from urllib import robotparser
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class ShopClient:
@@ -20,18 +22,20 @@ class ShopClient:
 
     def get(self, url):
         if not self.rp.can_fetch(self.user_agent, url):
-            print(f"Strona: {url} zablokowana przez robots.txt")
+            logger.warning("Strona %s zablokowana przez robots.txt", url)
             return None
 
         wait = self.interval - (time.time() - self.last_request)
         if wait > 0:
             time.sleep(wait)
         self.last_request = time.time()
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')}: {url}")
+        logger.info("GET %s", url)
         page = self.session.get(url)
+        logger.info("%s %s", page.status_code, url)
 
         if page.status_code != 200:
             print(f"{page.status_code}: {url}")
+            logger.warning("Status code: %s: %s", page.status_code, url)
             return None
 
         return page
