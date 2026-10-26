@@ -5,10 +5,9 @@ from shop_client import ShopClient
 
 URLS = [
     "https://gitara-sklep.pl/koncertowe/1589-ukulele-koncertowe-uk10s-harley-benton.html",
-    "https://gitara-sklep.pl/mikrofony-dynamiczne-/834-b-906-behringer-mikrofon-dynamiczny-nowosc-4033653055703.html",
-    "https://gitara-sklep.pl/sluchawki-studyjne-uniwersalne/2083-sluchawki-bluetooth-z-mikrofonem-bb-560m-behringer-4033653120616.html",
+    "https://gitara-sklep.pl/mikrofonowe/3916-quad410-kabel-mikrofonowy-starquad-4-zyly-czarny-proel.html",
     "https://gitara-sklep.pl/skrzypce/2416-hv-300-skrzypce-44-futeral-smyczek-ars-nova.html",
-    "https://gitara-sklep.pl/mikrofonowe/2661-tc-helicon-goxlr-mic-cable-przewod-mikrofonowy-3m-xlr-4033653191050.html",
+    "https://gitara-sklep.pl/138-kostki",
 ]
 
 
