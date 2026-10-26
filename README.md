@@ -32,6 +32,27 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
 - Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
 
+# CI
+Każdy PR (i każdy push na master) uruchamia [`.github/workflows/ci.yml`](.github/workflows/ci.yml) w GitHub Actions:
+
+| Zadanie | Co sprawdza |
+|---|---|
+| Python (ruff, pytest) | ruff check na kodzie Pythona w scraper/ i deploy/ oraz testy jednostkowe scrapera z scraper/tests/ |
+| gitleaks (cała historia) | sekrety we wszystkich commitach ze wszystkich gałęzi; wyjątki z uzasadnieniem w [`.gitleaks.toml`](.gitleaks.toml) |
+| ESLint (tests/) | kod testów E2E w tests/ |
+
+**Nie scalamy PR z czerwonym pipeline.** Prowadzący sprawdza to na liście PR. Jeśli CI nie przechodzi, poprawiamy kod w tym samym PR, a nie wyłączamy sprawdzenia.
+
+Jeśli gitleaks znajdzie prawdziwy sekret, nie wystarczy go usunąć kolejnym commitem, bo zostaje w historii. Hasło lub klucz trzeba unieważnić i wygenerować nowy.
+
+Te same sprawdzenia lokalnie, przed pushem:
+```bash
+pip install -r scraper/requirements-dev.txt   # najlepiej w venv
+ruff check scraper deploy
+pytest
+cd tests && npm ci && npm run lint
+```
+
 # Problemy
 ## `Cannot download language pack "pl"`
 Instalator pobiera polską paczkę językową z `https://i18n.prestashop-project.org`. Jeśli antywirus (Norton, Avast, AVG, ESET…) skanuje ruch HTTPS, podmienia certyfikat i kontener odrzuca połączenie. Instalacja zatrzymuje się w połowie, a sklep zostaje zepsuty: po restarcie w logach widać `PrestaShop Core already installed`, ale nie ma języków ani konta admina.
