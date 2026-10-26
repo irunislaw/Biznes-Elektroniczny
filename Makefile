@@ -16,7 +16,7 @@ up: certs
 down: 
 		$(COMPOSE) down 
 init:
-		@echo "init: brak krokow - konfiguracja sklepu dojdzie w kolejnych ticketach"
+		$(COMPOSE) exec -T prestashop php /opt/import/init_webservice.php
 logs:
 		$(COMPOSE) logs -f prestashop
 reset:
