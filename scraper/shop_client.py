@@ -34,7 +34,6 @@ class ShopClient:
         logger.info("%s %s", page.status_code, url)
 
         if page.status_code != 200:
-            print(f"{page.status_code}: {url}")
             logger.warning("Status code: %s: %s", page.status_code, url)
             return None
 
