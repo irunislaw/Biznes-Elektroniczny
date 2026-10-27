@@ -16,3 +16,9 @@ condition = "AND"
 paths = ['''^scraper/tests/fixtures/.*\.html$''']
 regexTarget = "match"
 regexes = ['''(static_)?token":"[0-9a-f]{32}"''']
+
+[[allowlists]]
+description = "Placeholder klucza Webservice w .env.example"
+condition = "AND"
+paths = ['''^\.env\.example$''']
+regexes = ['''^32_ZNAKOWY_KLUCZ$''']
