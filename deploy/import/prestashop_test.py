@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from pathlib import Path
 
 import requests
 import urllib3
@@ -62,6 +63,8 @@ def create_product(product, category_id):
         <weight>{product["weight"]}</weight>
         <condition>{product["condition"]}</condition>
         <active>1</active>
+        <show_price>1</show_price>
+        <available_for_order>1</available_for_order>
         <state>1</state>
         <name><language id="1"><![CDATA[{product["name"]}]]></language></name>
         <description><language id="1"><![CDATA[{product["description"]}]]></language></description>
@@ -120,7 +123,7 @@ def set_stock(product_id, quantity):
     response.raise_for_status()
 
 
-with open("data.json", encoding="utf-8") as file:
+with open(Path(__file__).parent / "data.json", encoding="utf-8") as file:
     product = json.load(file)
 
 parent_category_id = create_category(PARENT_CATEGORY_NAME, PARENT_CATEGORY_LINK, HOME_CATEGORY_ID)
