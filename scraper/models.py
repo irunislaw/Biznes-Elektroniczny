@@ -10,6 +10,7 @@ class Product(BaseModel):
     name: str
     description: str
     price_gross: Decimal
+    sale_price_gross: Decimal | None = None
     vat_rate_percent: Decimal | None = None
     weight: Decimal | None = None
     attributes: dict[str, str] = {}
