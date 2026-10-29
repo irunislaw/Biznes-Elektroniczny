@@ -35,13 +35,11 @@ def test_parse_regular_product():
     page = load_fixture(url)
     product = Product(**parse_product("", page))
     assert product.name == "Ukulele koncertowe UK10S Harley Benton"
-    assert product.price_gross == Decimal("270.00")
+    assert product.price_gross == Decimal("299.00")
+    assert product.sale_price_gross == Decimal("270.00")
     assert product.category_path == ["Ukulele", "Koncertowe"]
     assert len(product.image_urls) == 3
-    assert (
-        str(product.image_urls[0])
-        == "https://gitara-sklep.pl/14508/ukulele-koncertowe-uk10s-harley-benton.jpg"
-    )
+    assert str(product.image_urls[0]) == "https://gitara-sklep.pl/14508/ukulele-koncertowe-uk10s-harley-benton.jpg"
 
 
 def test_invalid_record_goes_to_log(caplog):
@@ -71,3 +69,12 @@ def test_parse_fake_product():
     assert product.vat_rate_percent == Decimal(8)
     assert product.attributes == {"Kolor": "Żółty", "Materiał": "Mahoń"}
     assert product.weight == Decimal("0.05")
+
+
+def test_sale_price_gross():
+    url = DIRECTORY / "fixtures/page-3.html"
+    page = load_fixture(url)
+    product = Product(**parse_product("", page))
+
+    assert product.price_gross == Decimal(449)
+    assert product.sale_price_gross is None
