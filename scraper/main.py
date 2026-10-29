@@ -1,8 +1,14 @@
 import json
+import logging
+from datetime import datetime
 
 import config
 from bs4 import BeautifulSoup
+from models import Product
+from pydantic import ValidationError
 from shop_client import ShopClient
+
+logger = logging.getLogger(__name__)
 
 
 def find_first_category_url(client, page_url):
