@@ -143,8 +143,7 @@ def setup_logging():
         handlers=[
             logging.StreamHandler(),
             logging.FileHandler(
-                config.LOGGING_PATH
-                / f"scraper_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log')}",
+                config.LOGGING_PATH / f"scraper_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log')}",
                 encoding="utf-8",
             ),
         ],
@@ -173,17 +172,16 @@ def main():
     first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
     links = scrape_category(client, first_category_url)
 
-    pages = fetch_pages(client, links)
-
-    products = parse_products(pages)
-    products_json = [product.model_dump(mode="json") for product in products]
-
     with open(
         config.SAVE_URLS_PATH,
         "w",
         encoding="utf-8",
     ) as file:
         json.dump(links, file, ensure_ascii=False)
+
+    pages = fetch_pages(client, links)
+    products = parse_products(pages)
+    products_json = [product.model_dump(mode="json") for product in products]
 
     with open(
         config.SAVE_PRODUCTS_PATH,
