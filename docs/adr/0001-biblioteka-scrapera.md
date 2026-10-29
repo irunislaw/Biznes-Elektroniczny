@@ -39,7 +39,21 @@ Sklep tworzy drzewo kategorii i listy produktów po stronie serwera. Wszystkie p
   - brak współbieżności
   - nie obsługuje stron tworzonych za pomocą JavaScript
 
-### Opcja 2: Playwright
+### Opcja 2: Scrapy
+
+Framework do crawlowania: kolejka zapytań, harmonogram, middleware i eksport wyników.
+
+- plusy:
+  - współbieżność
+  - wbudowane respektowanie `robots.txt` (`ROBOTSTXT_OBEY`) przez tę samą sesję i `User-Agent`
+  - limit tempa (`DOWNLOAD_DELAY`, `CONCURRENT_REQUESTS_PER_DOMAIN`), ponowienia i deduplikacja zapytań bez pisania własnego kodu
+  - `response.follow()` zamienia adresy względne na absolutne
+- minusy:
+  - przy limicie 2 zap./s współbieżność, czyli główna zaleta Scrapy, i tak musi być wyłączona
+  - nie wykonuje JavaScriptu (wymaga `scrapy-playwright`)
+  - nie jest opłacalny przy małej ilości pobieranych produktów
+
+### Opcja 3: Playwright
 
 Sterowanie prawdziwą przeglądarką, która wykonuje JavaScript na stronie.
 
