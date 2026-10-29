@@ -37,7 +37,8 @@ Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 | `id` | int | id produktu w sklepie |
 | `name` | str | |
 | `description` | str | surowy HTML opisu ze sklepu |
-| `price_gross` | Decimal | cena brutto |
+| `price_gross` | Decimal | cena regularna brutto (bez promocji) |
+| `sale_price_gross` | Decimal \| null | cena promocyjna brutto; `null`, gdy brak promocji |
 | `vat_rate_percent` | Decimal \| null | stawka VAT w % |
 | `weight` | Decimal \| null | patrz „Znane ograniczenia” |
 | `attributes` | dict | patrz „Znane ograniczenia” |
