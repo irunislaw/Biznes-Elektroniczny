@@ -19,15 +19,12 @@ def main():
         config.MAX_ATTEMPTS,
     )
 
-    counter = 1
-    for url in URLS:
+    for counter, url in enumerate(URLS, 1):
         page = client.get(url)
         if not page:
             print(f"Nie udało się pobrać: {url}")
             continue
-        with open(
-            os.path.join(config.FIXTURES_PATH, f"page-{counter}.html"), "wb"
-        ) as file:
+        with open(os.path.join(config.FIXTURES_PATH, f"page-{counter}.html"), "wb") as file:
             file.write(page.content)
         counter += 1
 
