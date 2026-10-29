@@ -12,7 +12,12 @@ URLS = [
 
 
 def main():
-    client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
+    client = ShopClient(
+        config.USER_AGENT,
+        config.SHOP_URL,
+        config.REQUESTS_PER_SECOND,
+        config.MAX_ATTEMPTS,
+    )
 
     counter = 1
     for url in URLS:
