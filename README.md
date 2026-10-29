@@ -10,7 +10,7 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
 1. Sklonuj repozytorium i wejdź do jego katalogu.
 2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`).
 3. `make up`, a postęp instalacji śledź przez `make logs`. Pierwszy start trwa kilka minut; gotowe, gdy w logach pojawi się `-- Installation successful! --`.
-4. `make init` (na razie nic nie konfiguruje, kroki dojdą w kolejnych ticketach).
+4. `make init` automatycznie konfiguruje język, walutę, podatki, płatności i pocztę sklepu.
 5. Adresy:
    - sklep: http://localhost:8080
    - panel administracyjny: http://localhost:8080/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
@@ -24,6 +24,34 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - instalacja, konfiguracja i uruchomienie: [scraper/README.md](scraper/README.md)
 - wyniki: katalog `scraper-results/`
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
+
+# Testowanie
+`make test` - uruchamia testy E2E sklepu w Playwright i generuje raport HTML z wynikami.
+
+- Uruchamia testy end-to-end w izolowanym kontenerze (nie wymaga instalacji Node.js ani przeglądarek).
+- Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
+- Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
+
+# CI
+Każdy PR (i każdy push na master) uruchamia [`.github/workflows/ci.yml`](.github/workflows/ci.yml) w GitHub Actions:
+
+| Zadanie | Co sprawdza |
+|---|---|
+| Python (ruff, pytest) | ruff check na kodzie Pythona w scraper/ i deploy/ oraz testy jednostkowe scrapera z scraper/tests/ |
+| gitleaks (cała historia) | sekrety we wszystkich commitach ze wszystkich gałęzi; wyjątki z uzasadnieniem w [`.gitleaks.toml`](.gitleaks.toml) |
+| ESLint (tests/) | kod testów E2E w tests/ |
+
+**Nie scalamy PR z czerwonym pipeline.** Prowadzący sprawdza to na liście PR. Jeśli CI nie przechodzi, poprawiamy kod w tym samym PR, a nie wyłączamy sprawdzenia.
+
+Jeśli gitleaks znajdzie prawdziwy sekret, nie wystarczy go usunąć kolejnym commitem, bo zostaje w historii. Hasło lub klucz trzeba unieważnić i wygenerować nowy.
+
+Te same sprawdzenia lokalnie, przed pushem:
+```bash
+pip install -r scraper/requirements-dev.txt   # najlepiej w venv
+ruff check scraper deploy
+pytest
+cd tests && npm ci && npm run lint
+```
 
 # Problemy
 ## `Cannot download language pack "pl"`

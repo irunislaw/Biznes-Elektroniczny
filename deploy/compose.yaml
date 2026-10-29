@@ -36,9 +36,12 @@ services:
       PS_ENABLE_SSL: "1"
       ADMIN_MAIL: ${ADMIN_MAIL}
       ADMIN_PASSWD: ${ADMIN_PASSWORD}
+      PS_WEBSERVICE_KEY: ${PS_WEBSERVICE_KEY}
     volumes:
       - shop_data:/var/www/html
       - ./apache/forwarded-https.conf:/etc/apache2/conf-enabled/forwarded-https.conf:ro
+      - ./import/init_webservice.php:/opt/import/init_webservice.php:ro
+      - ./config:/opt/prestashop-config:ro
   mailpit:
     image: axllent/mailpit:v1.31
     restart: unless-stopped
@@ -57,6 +60,17 @@ services:
     volumes:
       - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./certs:/etc/nginx/certs:ro
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.64.0-noble
+    environment:
+      - BASE_URL=https://localhost:${SHOP_HTTPS_PORT}
+    working_dir: /testing/tests
+    ipc: host
+    ports:
+      - "9323:9323"
+    volumes:
+      - ..:/testing
+    command: sh -c "apt-get update && apt-get install -y socat && socat TCP-LISTEN:${SHOP_HTTPS_PORT},fork TCP:nginx:443 & npm install && tail -f /dev/null"
 volumes:
   db_data:
   shop_data:

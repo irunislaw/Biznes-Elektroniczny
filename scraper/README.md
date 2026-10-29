@@ -68,10 +68,15 @@ przez walidację (`Błędny rekord <url>: <powód>`).
 7. **`parse_product`** wyciąga dane z atrybutu `data-product` (JSON osadzony w HTML) i breadcrumbu.
 8. **`parse_products`** waliduje każdy rekord modelem `Product`; błędny rekord trafia do logu, nie do wyników.
 
-## Testy
-Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 
-    pytest
+## Testy i lint
+Testy jednostkowe są w `tests/` i nie łączą się ze sklepem. CI uruchamia je w każdym PR razem z `ruff`.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+ruff check .
+```
 
 Testy działają bez internetu – używają zapisanych stron z `tests/fixtures/`
 (`save_fixtures.py` służy do ich ponownego pobrania). `fake-page-5.html` to ręcznie
