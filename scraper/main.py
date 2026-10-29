@@ -91,10 +91,32 @@ def collect_products(client, page_url):
     return links
 
 
-def parse_product(html):
+def parse_products(pages):
+    results = []
+    for url, html in pages:
+        try:
+            product = Product(**parse_product(url, html))
+        except (ValidationError, ValueError, KeyError, TypeError) as e:
+            logger.warning("Błędny rekord %s: %s", url, e)
+            continue
+
+        results.append(product)
+    return results
+
+
+def original_img_url(url):
+    return url.replace("-large_default", "")
+
+
+def parse_product(url, html):
     soup = BeautifulSoup(html, "html.parser")
 
-    data = json.loads(soup.select_one("#product-details")["data-product"])
+    details = soup.select_one("#product-details")
+
+    if details is None or not details.get("data-product"):
+        raise ValueError("Brak details albo data-product")
+
+    data = json.loads(details["data-product"])
 
     breadcrumb = [a.get_text() for a in soup.select("nav.breadcrumb li a span")]
 
@@ -102,28 +124,73 @@ def parse_product(html):
         "id": data["id_product"],
         "name": data["name"],
         "description": data["description"],
-        "price_brutto": data["price_amount"],
-        "tax_rate": data["rate"],
-        "attributes": data["features"],
-        "url": data["link"],
-        "image_urls": [img["bySize"]["large_default"]["url"] for img in data["images"]],
-        "categories_path": breadcrumb[1:-1],
+        "price_gross": data["price_amount"],
+        "vat_rate_percent": data.get("rate"),
+        "attributes": {f["name"]: f["value"] for f in data["features"]},
+        "url": url if url else data.get("link"),
+        "image_urls": [original_img_url(img["large"]["url"]) for img in data["images"]],
+        "category_path": breadcrumb[1:-1],
         "id_category_default": data["id_category_default"],
+        "weight": data.get("weight"),
     }
 
 
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s.%(msecs)03d %(levelname)-7s %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(
+                config.LOGGING_PATH
+                / f"scraper_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log')}",
+                encoding="utf-8",
+            ),
+        ],
+    )
+
+
+def fetch_pages(client, urls):
+    for url in urls:
+        page = client.get(url)
+
+        if not page:
+            continue
+
+        yield (url, page.content)
+
+
 def main():
+    setup_logging()
+    client = ShopClient(
+        config.USER_AGENT,
+        config.SHOP_URL,
+        config.REQUESTS_PER_SECOND,
+        config.MAX_ATTEMPTS,
+    )
 
-    page = open("tests/fixtures/page-2.html", "rb").read()
+    first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
+    links = scrape_category(client, first_category_url)
 
-    print(parse_product(page))
+    pages = fetch_pages(client, links)
 
-    # client = ShopClient(config.USER_AGENT, config.SHOP_URL, config.REQUESTS_PER_SECOND)
-    # first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
-    # links = scrape_category(client, first_category_url)
+    products = parse_products(pages)
+    products_json = [product.model_dump(mode="json") for product in products]
 
-    # with open(config.SAVE_PATH, "w", encoding="utf-8") as file:
-    #     json.dump(links, file)
+    with open(
+        config.SAVE_URLS_PATH,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(links, file, ensure_ascii=False)
+
+    with open(
+        config.SAVE_PRODUCTS_PATH,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        json.dump(products_json, file, ensure_ascii=False, indent=2)
 
 
 if __name__ == "__main__":
