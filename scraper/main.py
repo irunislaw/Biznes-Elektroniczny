@@ -161,6 +161,48 @@ def fetch_pages(client, urls):
         yield (url, page.content)
 
 
+def print_category_tree(tree, depth=0):
+    print("\t" * depth, f"{tree['url']} {tree['count']}")
+    for child in tree["children"]:
+        print_category_tree(child, depth=depth + 1)
+
+
+def select_categories_without_empty_leaves_helper(tree):
+
+    if tree["count"] < 5:
+        return True
+
+    for child in tree["children"]:
+        has_empty_leaf = select_categories_without_empty_leaves_helper(child)
+        if has_empty_leaf:
+            return True
+
+    return False
+
+
+def select_categories_without_empty_leaves(tree):
+
+    categories_without_empty_leaves = []
+
+    for child in tree["children"]:
+        has_empty_leaves = select_categories_without_empty_leaves_helper(child)
+        if has_empty_leaves:
+            continue
+
+        categories_without_empty_leaves.append(child)
+
+    return categories_without_empty_leaves
+
+
+def count_products_in_categories():
+
+    with open(config.SAVE_CATEGORY_TREE_PATH, encoding="utf-8") as file:
+        categories = json.load(file)
+        not_empty = select_categories_without_empty_leaves(categories)
+
+        print(not_empty)
+
+
 def main():
     setup_logging()
     client = ShopClient(
