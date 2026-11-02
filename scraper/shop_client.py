@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 
 class ShopClient:
     def __init__(self, user_agent, shop_url, requests_per_second, max_attempts):
+        self.start_time = time.time()
+        self.requests_count = 0
+
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": user_agent})
 
@@ -26,11 +29,15 @@ class ShopClient:
         self.rp.parse(robots.content.decode("utf-8").splitlines())
         logger.info("%s %s", robots.status_code, robots_url)
 
+        self.failed_urls = []
+
     def watch_requests_limit(self):
         wait = self.interval - (time.time() - self.last_request)
         if wait > 0:
             time.sleep(wait)
         self.last_request = time.time()
+
+        self.requests_count += 1
 
     def get(self, url):
         if not self.rp.can_fetch(self.user_agent, url):
@@ -58,5 +65,12 @@ class ShopClient:
 
             break
 
+        self.failed_urls.append(url)
         logger.warning("Nie udało się pobrać %s", url)
         return None
+
+    def client_stats(self):
+        time_elapsed = time.time() - self.start_time
+        tempo = self.requests_count / time_elapsed
+
+        return time_elapsed, tempo

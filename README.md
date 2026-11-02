@@ -49,7 +49,7 @@ Te same sprawdzenia lokalnie, przed pushem:
 ```bash
 pip install -r scraper/requirements-dev.txt   # najlepiej w venv
 ruff check scraper deploy
-pytest
+python -m pytest
 cd tests && npm ci && npm run lint
 ```
 

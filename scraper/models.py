@@ -17,4 +17,5 @@ class Product(BaseModel):
     url: HttpUrl
     category_path: list[str] = Field(min_length=1)
     id_category_default: int
+    other_category_ids: list[int] = []
     image_urls: list[HttpUrl] = Field(min_length=1)
