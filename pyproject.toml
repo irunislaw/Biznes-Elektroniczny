@@ -1,0 +1,15 @@
+# Konfiguracja narzędzi dla kodu Pythona (scraper/, deploy/), używana lokalnie i w CI
+# (.github/workflows/ci.yml). Zależności: scraper/requirements-dev.txt.
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+# E, W: styl (pycodestyle), F: błędy (pyflakes), I: kolejność importów,
+# B: typowe pułapki (bugbear), UP: przestarzała składnia
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["scraper/tests"]
+pythonpath = ["scraper"]
