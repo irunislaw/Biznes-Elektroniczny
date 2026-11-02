@@ -12,20 +12,6 @@ from shop_client import ShopClient
 logger = logging.getLogger(__name__)
 
 
-def find_first_category_url(client, page_url):
-    page = client.get(page_url)
-
-    if not page:
-        return None
-
-    urls = parse_subcategory_urls(page.content)
-
-    if urls:
-        return urls[0]
-
-    return None
-
-
 def parse_subcategory_urls(html):
     soup = BeautifulSoup(html, "html.parser")
     return [li.find("a").get("href") for li in soup.select("li[data-depth='0']")]
