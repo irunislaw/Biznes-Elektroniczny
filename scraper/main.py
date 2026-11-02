@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import datetime
+from urllib.parse import urlsplit
 
 import config
 from bs4 import BeautifulSoup
@@ -38,37 +39,47 @@ def parse_product_urls(html):
     return urls, has_next
 
 
-def collect_category_tree(client, page_url):
+def parse_category_name(html):
+    soup = BeautifulSoup(html, "html.parser")
+    category_name = soup.select_one("h1").text
+
+    return category_name
+
+
+def build_category_tree(client, page_url):
     page = client.get(page_url)
 
     if not page:
-        return []
-
-    subcategory_urls = []
+        return {"url": page_url, "name": "", "children": [], "products": [], "count": 0}
 
     subcategories = parse_subcategory_urls(page.content)
 
     if not subcategories:
-        return [page_url]
+        products = collect_products(client, page_url)
+        return {
+            "url": page_url,
+            "name": parse_category_name(page.content),
+            "children": [],
+            "products": products,
+            "count": len(products),
+        }
 
+    children = []
     for subcategory in subcategories:
-        url = collect_category_tree(client, subcategory)
-        subcategory_urls.extend(url)
+        children.append(
+            build_category_tree(
+                client,
+                subcategory,
+            )
+        )
 
-    return subcategory_urls
-
-
-def scrape_category(client, page_url):
-
-    product_urls = set()
-    category_tree = collect_category_tree(client, page_url)
-
-    for url in category_tree:
-        products = collect_products(client, url)
-        for product in products:
-            product_urls.add(product)
-
-    return list(product_urls)
+    return {
+        "url": page_url,
+        "name": parse_category_name(page.content),
+        "children": children,
+        "products": [],
+        "count": sum(child["count"] for child in children),
+    }
 
 
 def collect_products(client, page_url):
@@ -91,17 +102,52 @@ def collect_products(client, page_url):
     return links
 
 
-def parse_products(pages):
+def collect_product_categories(node, product_categories):
+    for product_url in node["products"]:
+        if product_url not in product_categories:
+            product_categories[product_url] = []
+        product_categories[product_url].append(node["url"])
+
+    for child in node["children"]:
+        collect_product_categories(child, product_categories)
+
+
+def collect_category_ids(node, category_ids):
+    if node["url"]:
+        category_ids.add(parse_category_id(node["url"]))
+    for child in node["children"]:
+        collect_category_ids(child, category_ids)
+
+
+def parse_products(pages, product_categories, category_ids):
     results = []
+    failed = 0
+    skipped = 0
     for url, html in pages:
         try:
-            product = Product(**parse_product(url, html))
+            data = parse_product(url, html)
+
+            if int(data["id_category_default"]) not in category_ids:
+                skipped += 1
+                logger.warning("Pominięte (kategoria główna poza drzewem): %s", url)
+                continue
+
+            categories = product_categories[url]
+            other_category_ids = [
+                parse_category_id(category)
+                for category in categories
+                if parse_category_id(category) != int(data["id_category_default"])
+            ]
+
+            data["other_category_ids"] = other_category_ids
+            product = Product(**data)
         except (ValidationError, ValueError, KeyError, TypeError) as e:
             logger.warning("Błędny rekord %s: %s", url, e)
+            failed += 1
             continue
 
         results.append(product)
-    return results
+    return results, failed, skipped
 
 
 def original_img_url(url):
@@ -134,6 +180,15 @@ def parse_product(url, html):
         "id_category_default": data["id_category_default"],
         "weight": data.get("weight"),
     }
+
+
+def parse_category_id(url):
+    path = urlsplit(url).path
+
+    path_without_dash = path[1:]
+    category_id = int(path_without_dash.split("-")[0])
+
+    return category_id
 
 
 def setup_logging():
@@ -212,26 +267,36 @@ def main():
         config.MAX_ATTEMPTS,
     )
 
-    first_category_url = find_first_category_url(client, config.SCRAPER_START_URL)
-    links = scrape_category(client, first_category_url)
+    category_trees = [build_category_tree(client, tree) for tree in config.CATEGORY_URLS]
+    root = {
+        "url": None,
+        "name": "glowna",
+        "children": category_trees,
+        "products": [],
+        "count": sum([t["count"] for t in category_trees]),
+    }
 
-    with open(
-        config.SAVE_URLS_PATH,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(links, file, ensure_ascii=False)
+    with open(config.SAVE_CATEGORY_TREE_PATH, "w", encoding="utf-8") as file:
+        json.dump(root, file, ensure_ascii=False, indent=2)
 
-    pages = fetch_pages(client, links)
-    products = parse_products(pages)
+    product_categories = {}
+    collect_product_categories(root, product_categories)
+
+    category_ids = set()
+    collect_category_ids(root, category_ids)
+
+    with open(config.SAVE_URLS_PATH, "w", encoding="utf-8") as file:
+        json.dump(product_categories, file, ensure_ascii=False, indent=2)
+
+    pages = fetch_pages(client, product_categories.keys())
+    products, failed, skipped = parse_products(pages, product_categories, category_ids)
     products_json = [product.model_dump(mode="json") for product in products]
+    with open(config.SAVE_PRODUCTS_PATH, "w", encoding="utf-8") as save:
+        json.dump(products_json, save, indent=2, ensure_ascii=False)
 
-    with open(
-        config.SAVE_PRODUCTS_PATH,
-        "w",
-        encoding="utf-8",
-    ) as file:
-        json.dump(products_json, file, ensure_ascii=False, indent=2)
+    saved_urls = {str(p.url) for p in products}
+    count_saved(root, saved_urls)
+    log_summary(root, products, product_categories, failed, skipped, client)
 
 
 if __name__ == "__main__":
