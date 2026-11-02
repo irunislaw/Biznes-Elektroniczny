@@ -4,34 +4,33 @@ test('search product by name and add to cart', async({page}) => {
     await page.goto('/');
 
     //searching
-    await page.getByRole('textbox', { name: 'Szukaj' }).click();
     await page.getByRole('textbox', { name: 'Szukaj' }).fill('frame');
     await page.getByRole('textbox', { name: 'Szukaj' }).press('Enter');
 
     //choosing random product
     const products =  page.locator('.product');
-    const products_count = await products.count();
-    expect(products_count).toBeGreaterThan(0);
+    const productsCount = await products.count();
+    expect(productsCount).toBeGreaterThan(0);
     
-    const chosen_product = products.nth(Math.floor(Math.random() * products_count));
+    const chosenProduct = products.nth(Math.floor(Math.random() * productsCount));
 
     //getting product name
-    const product_name = await chosen_product.locator('.product-title').textContent();
-    const product_name_clean = product_name?.replace(/\.{3}/g, '').trim();
+    const productName = await chosenProduct.locator('.product-title').textContent();
+    const productNameClean = productName?.replace(/\.{3}/g, '').trim();
 
     //adding to cart
-    await chosen_product.getByRole('link').first().click();
+    await chosenProduct.getByRole('link').first().click();
     await page.getByRole('button', { name: 'Dodaj do koszyka' }).click();
 
     //checking if its in cart
     await page.getByRole('link', { name: 'Przejdź do realizacji' }).click();
-    await expect(page.getByRole('link', { name: product_name_clean})).toBeVisible();
+    await expect(page.getByRole('link', { name: productNameClean})).toBeVisible();
 });
 
 test('register new user', async ({ page }) => {
   const name = 'Klient';
   const surname = 'Testowy';
-  const full_name = `${name} ${surname}`;
+  const fullName = `${name} ${surname}`;
   const email = `${name}.${surname}+${Date.now()}@test-email.com`;
 
   await page.goto('/');
@@ -50,7 +49,7 @@ test('register new user', async ({ page }) => {
   await page.getByRole('checkbox', { name: 'Akceptuję ogólne warunki' }).check();
   await page.getByRole('checkbox', { name: 'Wiadomość o przetwarzaniu' }).check();
 
-  
+
   await page.getByRole('button', { name: 'Zapisz' }).click();
-  await expect(page.getByRole('link', { name: full_name })).toBeVisible();
+  await expect(page.getByRole('link', { name: fullName })).toBeVisible();
 });
