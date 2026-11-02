@@ -3,7 +3,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import pytest
-from main import parse_product, parse_products
+from main import parse_category_name, parse_product, parse_products
 from models import Product
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,16 @@ def test_parse_regular_product():
 
 
 def test_invalid_record_goes_to_log(caplog):
+    product_categories = {
+        "https://gitara-sklep.pl/koncertowe/1589-ukulele-koncertowe-uk10s-harley-benton.html": [
+            "https://gitara-sklep.pl/333-koncertowe",
+        ],
+        "https://gitara-sklep.pl/138-kostki": [
+            "https://gitara-sklep.pl/138-kostki",
+        ],
+    }
+
+    category_ids = {333, 138}
 
     pages = [
         (
@@ -55,10 +65,12 @@ def test_invalid_record_goes_to_log(caplog):
         ),
     ]
 
-    results = parse_products(pages)
+    results, failed, skipped = parse_products(pages, product_categories, category_ids)
 
     assert len(results) == 1
     assert "Błędny rekord https://gitara-sklep.pl/138-kostki" in caplog.text
+    assert failed == 1
+    assert skipped == 0
 
 
 def test_parse_fake_product():
@@ -78,3 +90,24 @@ def test_sale_price_gross():
 
     assert product.price_gross == Decimal(449)
     assert product.sale_price_gross is None
+
+
+def test_parse_category_name():
+    url = DIRECTORY / "fixtures/page-4.html"
+    page = load_fixture(url)
+
+    category_name = parse_category_name(page)
+
+    assert category_name == "Kostki"
+
+
+def test_product_outside_tree_is_skipped():
+    url = "https://gitara-sklep.pl/koncertowe/1589-ukulele-koncertowe-uk10s-harley-benton.html"
+    pages = [(url, load_fixture(DIRECTORY / "fixtures/page-1.html"))]
+    product_categories = {url: ["https://gitara-sklep.pl/333-koncertowe"]}
+
+    results, failed, skipped = parse_products(pages, product_categories, {999})
+
+    assert results == []
+    assert failed == 0
+    assert skipped == 1
