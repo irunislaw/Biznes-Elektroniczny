@@ -117,8 +117,9 @@ w każdej kategorii i podkategorii:
 Testy jednostkowe są w `tests/` i nie łączą się ze sklepem. CI uruchamia je w każdym PR razem z `ruff`.
 
 ```bash
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-pytest
+python -m pytest
 ruff check .
 ```
 
