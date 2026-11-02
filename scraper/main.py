@@ -217,7 +217,10 @@ def fetch_pages(client, urls):
 
 
 def print_category_tree(tree, depth=0):
-    print("\t" * depth, f"{tree['url']} {tree['count']}")
+    print("\t" * depth, f"{tree['name']} {tree['count']}")
+    if len(tree["children"]) == 0:
+        for product in tree["products"]:
+            print("\t" * (depth + 1), product)
     for child in tree["children"]:
         print_category_tree(child, depth=depth + 1)
 
@@ -256,6 +259,46 @@ def count_products_in_categories():
         not_empty = select_categories_without_empty_leaves(categories)
 
         print(not_empty)
+
+
+def count_saved(node, saved_urls):
+    urls = {u for u in node["products"] if u in saved_urls}
+    for child in node["children"]:
+        urls |= count_saved(child, saved_urls)
+    node["saved_count"] = len(urls)
+    return urls
+
+
+def count_subcategories(node):
+    return sum(1 + count_subcategories(child) for child in node["children"])
+
+
+def log_subcategories(node, depth=1):
+    for child in node["children"]:
+        logger.info("%s%s: %d", "  " * depth, child["name"], child["saved_count"])
+        log_subcategories(child, depth + 1)
+
+
+def log_summary(root, products, product_categories, rejected, skipped, client):
+    categories = root["children"]
+    time_elapsed, tempo = client.client_stats()
+
+    logger.info("=== PODSUMOWANIE ===")
+    logger.info("Znalezione na listach sklepu (unikalne adresy): %d", len(product_categories))
+    logger.info("Pominięte (kategoria główna poza drzewem): %d", skipped)
+    logger.info("Odrzucone przez walidację: %d", rejected)
+    logger.info("Nieudane pobrania: %d", len(client.failed_urls))
+    logger.info("Zapisane produkty: %d", len(products))
+    logger.info("Produkty z co najmniej 2 zdjęciami: %d", sum(len(p.image_urls) >= 2 for p in products))
+    logger.info("Kategorie: %d", len(categories))
+    logger.info("Podkategorie: %d", count_subcategories(root) - len(categories))
+    logger.info("Zapisane produkty według kategorii:")
+    for category in categories:
+        logger.info("%s: %d", category["name"], category["saved_count"])
+        log_subcategories(category)
+
+    logger.info("Czas scrapowania: %.2f s", time_elapsed)
+    logger.info("Średnie tempo: %.2f zapytań/s", tempo)
 
 
 def main():
