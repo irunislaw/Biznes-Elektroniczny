@@ -1,4 +1,4 @@
-import { test, expect, ConsoleMessage } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test('search product by name and add to cart', async({page}) => {
     await page.goto('/');
