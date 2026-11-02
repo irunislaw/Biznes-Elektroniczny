@@ -4,11 +4,16 @@ test('search product by name and add to cart', async({page}) => {
     await page.goto('/');
 
     //searching
-    await page.getByRole('textbox', { name: 'Szukaj' }).fill('frame');
-    await page.getByRole('textbox', { name: 'Szukaj' }).press('Enter');
+    const searchBar = page.getByRole('textbox', { name: 'Szukaj' })
+    await searchBar.fill('frame');
+
+    await Promise.all([
+      page.waitForURL(/controller=search/),
+      searchBar.press('Enter')
+    ]);
 
     //choosing random product
-    const products =  page.locator('.product');
+    const products = page.locator('.product');
     const productsCount = await products.count();
     expect(productsCount).toBeGreaterThan(0);
     
