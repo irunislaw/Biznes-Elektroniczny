@@ -16,7 +16,11 @@ FROM (
         l.name AS kategoria_glowna,
         COUNT(DISTINCT s.id_category) AS podkategorie,
         COUNT(DISTINCT IF(cp.id_product IS NULL, NULL, s.id_category)) AS niepuste_podkategorie,
-        COUNT(DISTINCT cp.id_product) AS produkty
+        -- produkty z calej kategorii glownej, takze gdy nie ma podkategorii
+        (SELECT COUNT(DISTINCT cp2.id_product)
+            FROM ps_category d2
+            JOIN ps_category_product cp2 ON cp2.id_category = d2.id_category
+            WHERE d2.nleft BETWEEN m.nleft AND m.nright) AS produkty
     FROM ps_category m
     JOIN ps_category_lang l ON l.id_category = m.id_category
     LEFT JOIN ps_category s ON s.id_parent = m.id_category
@@ -25,7 +29,7 @@ FROM (
     LEFT JOIN ps_category_product cp ON cp.id_category = d.id_category
     WHERE m.id_parent = (SELECT value FROM ps_configuration WHERE name = 'PS_HOME_CATEGORY')
         AND l.id_lang = (SELECT id_lang FROM ps_lang WHERE iso_code = 'pl')
-    GROUP BY m.id_category, l.name
+    GROUP BY m.id_category, m.nleft, m.nright, l.name
 ) AS k;
 
 -- Metryka 2B: Kategorie i podkategorie: >= 4 kategorie, kazda z >= 2 niepustymi podkategoriami, 0 pustych
