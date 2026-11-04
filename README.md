@@ -32,7 +32,7 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
 - Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
 
-`make sprawdz` - sprawdza metryki danych sklepu i przy każdej pokazuje wynik oraz `OK` albo `BLAD`, gdy dane nie spełniają wymagania.
+`make sprawdz` - sprawdza metryki danych sklepu i przy każdej pokazuje wynik oraz `OK` albo `BŁĄD`, gdy dane nie spełniają wymagania.
 
 # CI
 Każdy PR (i każdy push na master) uruchamia [`.github/workflows/ci.yml`](.github/workflows/ci.yml) w GitHub Actions:
