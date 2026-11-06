@@ -14,6 +14,13 @@ SAVE_PRODUCTS_PATH = DIRECTORY.parent / "scraper-results/results.json"
 SAVE_CATEGORY_TREE_PATH = DIRECTORY.parent / "scraper-results/category-tree.json"
 LOGGING_PATH = DIRECTORY.parent / "scraper-results"
 
+# Zdjęcia produktów (download_images.py, check_images.py)
+IMAGES_PATH = DIRECTORY.parent / "scraper-results/images"
+IMAGE_MAX_SIDE_PX = 1600
+IMAGE_MIN_SIDE_PX = 800
+# 300 000 B to ≤300 KB niezależnie od tego, czy 1 KB = 1000 B, czy 1024 B
+IMAGE_MAX_BYTES = 300_000
+
 CATEGORY_URLS = [
     "https://gitara-sklep.pl/10-ukulele",
     "https://gitara-sklep.pl/17-syntezatory-i-keyboardy",
