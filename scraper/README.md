@@ -8,7 +8,7 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 
 ## Wymagania
 - Python 3.10+ (składnia `Decimal | None` w `models.py`)
-- zależności w `requirements.txt` (requests, beautifulsoup4, pydantic, pytest)
+- zależności w `requirements.txt` (requests, beautifulsoup4, pydantic, Pillow, pytest)
 
 ## Instalacja
     cd scraper
@@ -23,12 +23,16 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 - `REQUESTS_PER_SECOND` - limit tempa (domyślnie 2),
 - `MAX_ATTEMPTS` - liczba prób pobrania strony,
 - `SAVE_URLS_PATH`, `SAVE_PRODUCTS_PATH`, `SAVE_CATEGORY_TREE_PATH` - pliki wynikowe,
-- `LOGGING_PATH` - katalog na logi.
+- `LOGGING_PATH` - katalog na logi,
+- `IMAGES_PATH` - katalog na zdjęcia (`scraper-results/images/`, w `.gitignore`),
+- `IMAGE_MAX_SIDE_PX` (1600), `IMAGE_MAX_BYTES` (300 000 B), `IMAGE_MIN_SIDE_PX` (800) - limity zdjęć.
 
 ## Uruchomienie
 Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 
-    python main.py
+    python main.py             # produkty -> scraper-results/results.json
+    python download_images.py  # zdjęcia -> scraper-results/images/, ścieżki do results.json
+    python check_images.py     # kontrola zdjęć 20 losowych produktów
 
 Pełny przebieg trwa ok. 12 minut (730,96 s przy 2 zapytaniach/s i 1288 adresach produktów).
 Czas zależy od liczby produktów i ponowień.
@@ -59,6 +63,7 @@ i listą pozostałych (`other_category_ids`).
 | `id_category_default` | int | id kategorii głównej |
 | `other_category_ids` | list[int] | id pozostałych kategorii z wybranego drzewa |
 | `image_urls` | list[URL] | oryginalne zdjęcia (bez skalowania przez sklep) |
+| `image_files` | list[str] | lokalne zdjęcia względem `scraper-results/`, np. `images/487-1.jpg`; puste do uruchomienia `download_images.py` |
 
 ## Brakujące dane a import
 Brak stawki VAT lub wagi jest zapisywany jako `null`. Import przyjmuje wtedy:
@@ -68,6 +73,39 @@ Brak stawki VAT lub wagi jest zapisywany jako `null`. Import przyjmuje wtedy:
 
 W ostatnim przebiegu VAT miały wszystkie produkty (23% – 1119, 5% – 5),
 a wagi nie miał żaden, bo sklep jej nie publikuje.
+
+## Zdjęcia
+`download_images.py` czyta `results.json`, pobiera każdy adres z `image_urls` tym samym
+`ShopClient` co scraper (ten sam User-Agent, `robots.txt` i limit ≤2 zapytania/s), skaluje
+zdjęcie i dopisuje przy produkcie `image_files`.
+
+- **Nazwy plików** są stałe: `<id produktu>-<n>.jpg`, gdzie `n` to pozycja adresu w `image_urls`
+  (od 1). Import dopasowuje zdjęcie do produktu po samej nazwie. Jeśli któreś zdjęcie się nie
+  pobierze, kolejne zachowują swoje numery.
+- **Bez ponownego pobierania**: plik, który już jest w `scraper-results/images/`, jest pomijany.
+  Zapis idzie przez plik tymczasowy, więc przerwanie (Ctrl+C) nie zostawia uciętego zdjęcia.
+  Po ponownym `main.py` (który nadpisuje `results.json`) wystarczy znów uruchomić
+  `download_images.py`: tylko uzupełni `image_files`, bez zapytań do sklepu.
+- **Skalowanie** (`images.py`, Pillow): dłuższy bok najwyżej 1600 px (mniejsze zdjęcia nie są
+  powiększane), JPEG z jakością obniżaną od 90 co 5, aż plik ma ≤300 000 B, czyli ≤300 KB przy
+  obu definicjach KB. Gdyby nie wystarczyła nawet jakość 20, obraz jest zmniejszany o 10%
+  i próba się powtarza. Przezroczystość zamieniana jest na białe tło, metadane EXIF są usuwane.
+- **Log** `scraper-results/images_RRRR-MM-DD_GG-MM-SS.log`: każde `GET`, wymiary przed i po
+  skalowaniu, jakość i rozmiar, ostrzeżenie `Małe zdjęcie produktu <id>: <szer>x<wys>, dłuższy bok < 800 px (<url>)`
+  oraz podsumowanie: liczba pobranych, pominiętych, błędów i małych zdjęć.
+
+Pełny zbiór nie trafia do repozytorium. W `scraper-results/przyklady/` jest 20 przykładowych
+zdjęć (tyle pozwala PDF) o tych samych nazwach co w `images/`.
+
+### Kontrola zdjęć
+`check_images.py` losuje 20 produktów z `results.json` i dla każdego zdjęcia wypisuje wymiary
+w pikselach i rozmiar w KB (1 KB = 1024 B, jak w Eksploratorze Windows). Kod wyjścia 1
+oznacza, że któreś zdjęcie łamie limit (brak pliku, nie JPEG, dłuższy bok > 1600 px,
+plik > 300 000 B). Małe zdjęcia są oznaczone, ale nie są błędem.
+
+    python check_images.py                                     # 20 losowych produktów
+    python check_images.py --seed 123                          # powtórzenie tego samego losowania
+    python check_images.py --dir ../scraper-results/przyklady  # przykłady z repozytorium (bez pobierania)
 
 ## Log
 Log trafia na konsolę i do pliku `scraper-results/scraper_RRRR-MM-DD_GG-MM-SS.log`:
@@ -124,7 +162,10 @@ ruff check .
 ```
 
 Testy działają bez internetu – używają zapisanych stron z `tests/fixtures/`
-(`save_fixtures.py` służy do ich ponownego pobrania). `fake-page-5.html` to ręcznie
+(`save_fixtures.py` służy do ich ponownego pobrania). `test_images.py` generuje obrazy
+w Pillow (gradient z szumem, czysty szum, przezroczysty PNG) i podstawia sztucznego klienta
+zamiast `ShopClient`, więc sprawdza skalowanie, nazwy plików, pomijanie pobranych zdjęć
+i log małych zdjęć bez połączenia ze sklepem. `fake-page-5.html` to ręcznie
 zmodyfikowana strona z VAT 8%, atrybutami i wagą - sprawdza parsowanie innej stawki VAT
 oraz pól, których prawdziwe strony sklepu nie mają.
 
