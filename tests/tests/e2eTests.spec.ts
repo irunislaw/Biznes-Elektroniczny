@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { addProductToCart, expectCartContents, openCart } from '../pages/cart';
 
 test('search product by name and add to cart', async({page}) => {
     await page.goto('/');
@@ -58,3 +59,62 @@ test('register new user', async ({ page }) => {
   await page.getByRole('button', { name: 'Zapisz' }).click();
   await expect(page.getByRole('link', { name: fullName })).toBeVisible();
 });
+
+test('add 10 products', async ({ page }) => {
+  test.setTimeout(120_000);
+  const targetCount = 10;
+  const maxPerCategory = 5;
+  const addedProducts = new Map<string, number>();
+
+  const categories = await test.step('Pobierz kategorie z katalogu', async () => {
+    await page.goto('/');
+    await page.getByRole('link', { name: /^Wszystkie produkty\s*?$/ }).click();
+
+    const categoryLinks = page.locator('#left-column .category-sub-menu li > a');
+    await expect(categoryLinks.first()).toBeVisible();
+    const entries = await categoryLinks.evaluateAll(links => links.map(link => [
+      (link as HTMLAnchorElement).href,
+      link.textContent?.trim() ?? '',
+    ] as const));
+    return [...new Map(entries)];
+  });
+
+  while (categories.length > 0 && addedProducts.size < targetCount) {
+    const index = Math.floor(Math.random() * categories.length);
+    const [[categoryUrl, categoryName]] = categories.splice(index, 1);
+
+    await test.step(`Kategoria: ${categoryName}`, async () => {
+      let remainingInCategory = Math.min(maxPerCategory, targetCount - addedProducts.size);
+      await page.goto(categoryUrl);
+      await expect(page.locator('body')).toHaveAttribute('id', 'category');
+
+      const products = await page.locator('#js-product-list article[data-id-product]').evaluateAll(cards =>
+        cards.flatMap(card => {
+          const id = card.getAttribute('data-id-product');
+          const link = card.querySelector<HTMLAnchorElement>('.product-title a');
+          return id && link ? [{ id, url: link.href }] : [];
+        }),
+      );
+
+      for (const product of products) {
+        if (remainingInCategory === 0) break;
+        if (addedProducts.has(product.id)) continue;
+
+        const quantity = await addProductToCart(page, product.url);
+        if (quantity === undefined) continue;
+
+        addedProducts.set(product.id, quantity);
+        remainingInCategory--;
+      }
+    });
+  }
+
+  await test.step('Sprawdź pozycje i ilości w koszyku', async () => {
+    expect(addedProducts.size, 'Po sprawdzeniu kategorii zabrakło dostępnych produktów').toBe(targetCount);
+
+    await openCart(page);
+    await expectCartContents(page, addedProducts);
+  });
+});
+
+test('remove 3 products', async ({page}) => {});
