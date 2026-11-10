@@ -19,3 +19,5 @@ class Product(BaseModel):
     id_category_default: int
     other_category_ids: list[int] = []
     image_urls: list[HttpUrl] = Field(min_length=1)
+    # Ścieżki względem scraper-results/, np. "images/487-1.jpg" (uzupełnia download_images.py)
+    image_files: list[str] = []
