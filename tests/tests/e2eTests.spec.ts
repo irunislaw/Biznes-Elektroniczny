@@ -61,13 +61,13 @@ test('register new user', async ({ page }) => {
 });
 
 test('add 10 products', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(60_000);
   const targetCount = 10;
   const maxPerCategory = 5;
   const addedProducts = new Map<string, number>();
 
   const categories = await test.step('Pobierz kategorie z katalogu', async () => {
-    await page.goto('/');
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.getByRole('link', { name: /^Wszystkie produkty\s*?$/ }).click();
 
     const categoryLinks = page.locator('#left-column .category-sub-menu li > a');
@@ -85,7 +85,7 @@ test('add 10 products', async ({ page }) => {
 
     await test.step(`Kategoria: ${categoryName}`, async () => {
       let remainingInCategory = Math.min(maxPerCategory, targetCount - addedProducts.size);
-      await page.goto(categoryUrl);
+      await page.goto(categoryUrl, { waitUntil: 'domcontentloaded' });
       await expect(page.locator('body')).toHaveAttribute('id', 'category');
 
       const products = await page.locator('#js-product-list article[data-id-product]').evaluateAll(cards =>

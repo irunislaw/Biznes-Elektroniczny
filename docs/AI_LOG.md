@@ -35,6 +35,7 @@ Dopisz nowy wiersz na końcu tabeli. Przykład:
 | 2026-11-02, Maria Rek | Claude Opus 5.5 w Claude Code | BE-23: Konfiguracja płatności i przewoźników | Wskazanie, co i jak ustawić w PrestaShop (`PS_SHIPPING_FREE_PRICE`, `max_weight`, ograniczenia przewoźników, faktura dla statusu pobrania). | Brak | Dwukrotne uruchomienie `make init`, wszystkie kroki zakończone komunikatem OK, bez duplikatów przewoźników. |
 | 2026-11-02, Tymon Dera | Claude Opus 5.5 w Claude Code CLI | BE-17: Pobrać pełny zbiór produktów, zaktualizowanie dokumentacji na temat scrapera | Gotowy plik `README.md` | Brak | Sprawdziłem poprawność znaczników w pliku `README.md` |
 | 2026-11-03, Maria Rek | Claude Opus 5.5 w Claude Code | BE-27: Skrypt sprawdzający metryki danych sklepu | Zapytania SQL do `deploy/sprawdz/metryki.sql` sprawdzające metryki z wymagań | Początkowo zapytania nie liczyły produktów w głębszych podkategoriach i pomijały stan produktów z wariantami. | Uruchomiłam `make sprawdz` i porównałam wyniki z danymi w panelu administracyjnym sklepu. |
+| 2026-11-09, Seweryn Grabowski | OpenAI Codex (GPT-6) | BE-25: Test E2E dodawania 10 produktów do koszyka | Losowanie kategorii i ilości według stanu magazynowego oraz funkcje do dodawania produktów, otwierania koszyka i sprawdzania jego zawartości. | Pierwsza wersja niepotrzebnie przechodziła na kolejne strony kategorii. Ograniczono ją do pierwszej strony. | Uruchomiłem test przez `make test` i w VS Code. Raport JUnit: Chromium 21,0 s, Firefox 26,2 s, WebKit 27,0 s. Test przeszedł we wszystkich trzech. |
 
 ## Refleksja zespołu
 

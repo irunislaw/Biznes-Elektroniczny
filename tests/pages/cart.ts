@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 export async function addProductToCart(page: Page, productUrl: string) {
-  await page.goto(productUrl);
+  await page.goto(productUrl, { waitUntil: 'domcontentloaded' });
 
   const details = page.locator('#product-details');
   await expect(details).toHaveAttribute('data-product', /.+/);
