@@ -2,8 +2,10 @@
 Skrypt `import.py` przenosi do sklepu dane zebrane przez scraper (`scraper-results/category-tree.json`, `scraper-results/results.json` oraz pobrane zdjęcia). Korzysta z Web Service API PrestaShopa (`https://localhost:8443/api`). Stałe (ziarno losowania, liczba wątków, mapowanie stawek VAT na grupy reguł) są w `config.py`.
 
 ## Uruchomienie
-Wymagania: uruchomiony sklep po `make up` i `make init` (tworzy konto API) oraz `PS_WEBSERVICE_KEY` ustawiony w `.env`.
-Zdjęcia w `scraper-results/images/`, pobrane przez `python download_images.py` w katalogu `scraper/` (opis w `scraper/README.md`)
+Wymagania:
+- uruchomiony sklep po `make up` i `make init` (tworzy konto API),
+- `PS_WEBSERVICE_KEY` ustawiony w `.env`,
+- zdjęcia w `scraper-results/images/`, pobrane przez `python download_images.py` w katalogu `scraper/` (opis w [scraper/README.md](../../scraper/README.md)).
 
 Z katalogu głównego repozytorium:
 ```bash
