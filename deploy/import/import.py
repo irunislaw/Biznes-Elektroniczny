@@ -101,22 +101,29 @@ def get_category_link_rewrite(category_url):
 def clear_products(product_id_map):
     products = get_products()
     id_in_database = product_id_map.values()
+    deleted = 0
     for product in products:
         if product["id"] not in id_in_database:
             api_delete("products" + "/" + str(product["id"]))
+            deleted += 1
+    logger.info("Usunięto %d produktów spoza importu", deleted)
 
 
 def clear_categories(category_id_map):
     categories = get_categories()
     id_in_database = category_id_map.values()
+    deleted = 0
     for category in categories:
         if category["id"] not in id_in_database:
             try:
                 api_delete("categories" + "/" + str(category["id"]))
+                deleted += 1
             except requests.HTTPError as e:
                 if e.response.status_code == 404:
                     continue
                 raise
+
+    logger.info("Usunięto %d kategorii spoza importu", deleted)
 
 
 def clear_sample_data(category_id_map, product_id_map):
@@ -206,7 +213,7 @@ def get_category_with_ancestors(category_id, category_parent_map):
 
 def add_products(products, products_in_database, category_id_map, category_parent_map):
     products_id_map = {}
-    for product in products:
+    for i, product in enumerate(products, 1):
         if str(product["id"]) in products_in_database:
             product_id = products_in_database[str(product["id"])]
         else:
@@ -225,6 +232,8 @@ def add_products(products, products_in_database, category_id_map, category_paren
             product_id = add_product(product, default_id, categories)
 
         products_id_map[product["id"]] = product_id
+        if i % 100 == 0 or i == len(products):
+            logger.info("Produkty: %d/%d", i, len(products))
 
     return products_id_map
 
@@ -280,7 +289,7 @@ def set_stocks(products, product_id_map):
     stocks = api_get("stock_availables", {"display": "[id,id_product]"})["stock_availables"]
     stocks_in_database = {int(s["id_product"]): int(s["id"]) for s in stocks}
     empty_stocks = 0
-    for product in products:
+    for i, product in enumerate(products, 1):
         source_id = product["id"]
         ps_id = product_id_map[source_id]
         stock_id = stocks_in_database[ps_id]
@@ -290,6 +299,9 @@ def set_stocks(products, product_id_map):
             empty_stocks += 1
         xml = create_stock_xml(stock_id, stock_amount)
         api_patch(f"stock_availables/{stock_id}", xml)
+
+        if i % 100 == 0 or i == len(products):
+            logger.info("Stany: %d/%d", i, len(products))
 
     logger.info("Produktów o stanie 0: %d", empty_stocks)
     logger.info("Procentowo: %.2f%%", ((empty_stocks / len(products)) * 100))
@@ -333,12 +345,46 @@ def add_images(products, product_id_map):
 
             futures[executor.submit(add_product_images, ps_product_id, product["image_files"])] = ps_product_id
 
-        for future in as_completed(futures):
+        for done, future in enumerate(as_completed(futures), 1):
             try:
                 future.result()
             except requests.RequestException as e:
                 logger.warning("Nie udało się dodać zdjęć dla produktu: %d %s", futures[future], e)
-                continue
+
+            if done % 100 == 0 or done == len(futures):
+                logger.info("Zdjęcia: %d/%d", done, len(futures))
+
+
+def create_ps_menu_xml(id_menu, value, date):
+    xml = f"""
+        <prestashop>
+            <configuration>
+                <id>{id_menu}</id>
+                <value>{value}</value>
+                <date_add>{date}</date_add>
+            </configuration>
+        </prestashop>
+
+    """
+
+    return xml
+
+
+def setup_ps_main_menu(category_parent_map):
+    response = api_get(
+        "configurations",
+        {"filter[name]": "[MOD_BLOCKTOPMENU_ITEMS]", "display": "full"},
+    )
+
+    id_main_menu = int(response["configurations"][0]["id"])
+    main_categories = [c_id for c_id in category_parent_map if category_parent_map[c_id] == config.HOME_CATEGORY_ID]
+
+    value = ",".join(f"CAT{category}" for category in main_categories)
+
+    date = time.strftime("%Y-%m-%d %H:%M:%S")
+
+    xml = create_ps_menu_xml(id_main_menu, value, date)
+    api_patch(f"configurations/{id_main_menu}", xml)
 
 
 def setup_logging():
@@ -367,6 +413,7 @@ def main():
         categories_in_database = {(int(c["id_parent"]), c["link_rewrite"]): int(c["id"]) for c in categories_display}
 
         add_categories(root, categories_in_database, category_parent_map, category_id_map)
+        setup_ps_main_menu(category_parent_map)
     with open(config.SCRAPER_RESULTS_PATH / "results.json", encoding="utf-8") as file:
         products = json.load(file)
         products_display = get_products({"display": "[id,reference]"})
