@@ -2,6 +2,8 @@ import json
 import logging
 import random
 import time
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from decimal import Decimal
 from urllib.parse import urlsplit
@@ -293,6 +295,52 @@ def set_stocks(products, product_id_map):
     logger.info("Procentowo: %.2f%%", ((empty_stocks / len(products)) * 100))
 
 
+def add_image(product_id, image_path):
+    with open(config.SCRAPER_RESULTS_PATH / image_path, "rb") as image:
+        response = requests.post(
+            config.API_URL + "/images/products/" + str(product_id),
+            auth=config.LOGIN,
+            files={"image": ("image.jpg", image, "image/jpeg")},
+            verify=False,
+            timeout=config.TIMEOUT,
+        )
+
+        response.raise_for_status()
+
+
+def add_product_images(ps_product_id, image_files):
+    for image_file in image_files:
+        add_image(ps_product_id, image_file)
+
+
+def add_images(products, product_id_map):
+    response = requests.get(
+        config.API_URL + "/images/products", auth=config.LOGIN, verify=False, timeout=config.TIMEOUT
+    )
+    response.raise_for_status()
+
+    products_with_images = set()
+    root = ET.fromstring(response.content)
+    for el in root.findall("images/image"):
+        products_with_images.add(int(el.get("id")))
+
+    with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
+        futures = {}
+        for product in products:
+            ps_product_id = product_id_map[product["id"]]
+            if ps_product_id in products_with_images:
+                continue
+
+            futures[executor.submit(add_product_images, ps_product_id, product["image_files"])] = ps_product_id
+
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except requests.RequestException as e:
+                logger.warning("Nie udało się dodać zdjęć dla produktu: %d %s", futures[future], e)
+                continue
+
+
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
@@ -326,9 +374,9 @@ def main():
 
         product_id_map = add_products(products, products_in_database, category_id_map, category_parent_map)
 
+        clear_sample_data(category_id_map, product_id_map)
+        add_images(products, product_id_map)
         set_stocks(products, product_id_map)
-
-    clear_sample_data(category_id_map, product_id_map)
 
     end_time = time.perf_counter()
     logger.info("Czas importu: %.2fs", end_time - start_time)
