@@ -177,7 +177,7 @@ def parse_category_id(url):
     return category_id
 
 
-def setup_logging():
+def setup_logging(name="scraper"):
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s.%(msecs)03d %(levelname)-7s %(name)s: %(message)s",
@@ -185,7 +185,7 @@ def setup_logging():
         handlers=[
             logging.StreamHandler(),
             logging.FileHandler(
-                config.LOGGING_PATH / f"scraper_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log')}",
+                config.LOGGING_PATH / f"{name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S.log')}",
                 encoding="utf-8",
             ),
         ],
