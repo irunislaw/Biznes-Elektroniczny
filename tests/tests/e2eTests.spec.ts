@@ -1,67 +1,43 @@
-import { test, expect } from '@playwright/test';
-import { addProductToCart, expectCartContents, openCart } from '../pages/cart';
+import { test, expect, type Page } from '@playwright/test';
+import { addProductToCart, expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
 
-test('search product by name and add to cart', async({page}) => {
-    await page.goto('/');
+test('koszyk i rejestracja klienta', async ({ page }) => {
+  test.setTimeout(150_000);
 
-    //searching
-    const searchBar = page.getByRole('textbox', { name: 'Szukaj' })
-    await searchBar.fill('frame');
+  const cart = await test.step('1. Dodanie do koszyka 10 produktów', () => prepareCartWithTenProducts(page));
 
-    await Promise.all([
-      page.waitForURL(/controller=search/),
-      searchBar.press('Enter')
-    ]);
+  await test.step('2. Wyszukanie produktu po nazwie i dodanie do koszyka losowego', async () => {
+    const { id, quantity } = await searchAndAddNewProduct(page, cart);
+    cart.set(id, quantity);
+    expect(cart.size).toBe(11);
+    await openCart(page);
+    await expectCartContents(page, cart);
+  });
 
-    //choosing random product
-    const products = page.locator('.product');
-    const productsCount = await products.count();
-    expect(productsCount).toBeGreaterThan(0);
-    
-    const chosenProduct = products.nth(Math.floor(Math.random() * productsCount));
+  await test.step('3. Usunięcie z koszyka 3 produktów', async () => {
+    const total = page.locator('.cart-summary-totals .cart-total .value').last();
+    await expect(total).toHaveText(/\d/);
+    const totalBefore = await total.innerText();
 
-    //getting product name
-    const productName = await chosenProduct.locator('.product-title').textContent();
-    const productNameClean = productName?.replace(/\.{3}/g, '').trim();
+    for (const id of [...cart.keys()].slice(0, 3)) {
+      await removeProductFromCart(page, id);
+      cart.delete(id);
+    }
 
-    //adding to cart
-    await chosenProduct.getByRole('link').first().click();
-    await page.getByRole('button', { name: 'Dodaj do koszyka' }).click();
+    expect(cart.size).toBe(8);
+    await expectCartContents(page, cart);
+    await expect(total, 'Łączna cena po usunięciu produktów').not.toHaveText(totalBefore);
+    await expect(total).toHaveText(/\d/);
+  });
 
-    //checking if its in cart
-    await page.getByRole('link', { name: 'Przejdź do realizacji' }).click();
-    await expect(page.getByRole('link', { name: productNameClean})).toBeVisible();
+  await test.step('4. Rejestracja nowego konta', async () => {
+    await registerNewUser(page);
+    await openCart(page);
+    await expectCartContents(page, cart);
+  });
 });
 
-test('register new user', async ({ page }) => {
-  const name = 'Klient';
-  const surname = 'Testowy';
-  const fullName = `${name} ${surname}`;
-  const email = `${name}.${surname}+${Date.now()}@test-email.com`;
-
-  await page.goto('/');
-
-  await page.locator('header').getByRole('link', { name: 'Zaloguj się' }).click();
-  await page.getByRole('link', { name: 'Nie masz konta? Załóż je tutaj' }).click();
-
-  //client data
-  await page.getByRole('radio', { name: 'Pan', exact: true }).check();
-  await page.getByRole('textbox', { name: 'Imię' }).fill(name);
-  await page.getByRole('textbox', { name: 'Nazwisko' }).fill(surname);
-  await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
-  await page.getByRole('textbox', { name: 'Pole wprowadzania hasła' }).fill('Haslo Klienta Do Testow');
-
-  //permissions
-  await page.getByRole('checkbox', { name: 'Akceptuję ogólne warunki' }).check();
-  await page.getByRole('checkbox', { name: 'Wiadomość o przetwarzaniu' }).check();
-
-
-  await page.getByRole('button', { name: 'Zapisz' }).click();
-  await expect(page.getByRole('link', { name: fullName })).toBeVisible();
-});
-
-test('add 10 products', async ({ page }) => {
-  test.setTimeout(60_000);
+async function prepareCartWithTenProducts(page: Page) {
   const targetCount = 10;
   const maxPerCategory = 5;
   const addedProducts = new Map<string, number>();
@@ -83,30 +59,9 @@ test('add 10 products', async ({ page }) => {
     const index = Math.floor(Math.random() * categories.length);
     const [[categoryUrl, categoryName]] = categories.splice(index, 1);
 
-    await test.step(`Kategoria: ${categoryName}`, async () => {
-      let remainingInCategory = Math.min(maxPerCategory, targetCount - addedProducts.size);
-      await page.goto(categoryUrl, { waitUntil: 'domcontentloaded' });
-      await expect(page.locator('body')).toHaveAttribute('id', 'category');
+    const limit = Math.min(maxPerCategory, targetCount - addedProducts.size);
 
-      const products = await page.locator('#js-product-list article[data-id-product]').evaluateAll(cards =>
-        cards.flatMap(card => {
-          const id = card.getAttribute('data-id-product');
-          const link = card.querySelector<HTMLAnchorElement>('.product-title a');
-          return id && link ? [{ id, url: link.href }] : [];
-        }),
-      );
-
-      for (const product of products) {
-        if (remainingInCategory === 0) break;
-        if (addedProducts.has(product.id)) continue;
-
-        const quantity = await addProductToCart(page, product.url);
-        if (quantity === undefined) continue;
-
-        addedProducts.set(product.id, quantity);
-        remainingInCategory--;
-      }
-    });
+    await test.step(`Kategoria: ${categoryName}`, () => addCategoryProducts(page, categoryUrl, addedProducts, limit));
   }
 
   await test.step('Sprawdź pozycje i ilości w koszyku', async () => {
@@ -115,6 +70,72 @@ test('add 10 products', async ({ page }) => {
     await openCart(page);
     await expectCartContents(page, addedProducts);
   });
-});
 
-test('remove 3 products', async ({page}) => {});
+  return addedProducts;
+}
+
+async function addCategoryProducts(page: Page, categoryUrl: string, cart: Map<string, number>, limit: number) {
+  await page.goto(categoryUrl, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('body')).toHaveAttribute('id', 'category');
+
+  const targetSize = cart.size + limit;
+  for (const product of await readCatalogProducts(page)) {
+    if (cart.size === targetSize) break;
+    if (cart.has(product.id)) continue;
+
+    const quantity = await addProductToCart(page, product.url);
+    if (quantity !== undefined) cart.set(product.id, quantity);
+  }
+}
+
+async function searchAndAddNewProduct(page: Page, cart: ReadonlyMap<string, number>) {
+  const searchTerm = 'Hummingbird';
+  const searchBar = page.getByRole('textbox', { name: 'Szukaj' });
+  await searchBar.fill(searchTerm);
+  await Promise.all([
+    page.waitForURL(/controller=search/, { waitUntil: 'domcontentloaded' }),
+    searchBar.press('Enter'),
+  ]);
+
+  const results = await readCatalogProducts(page);
+  while (results.length > 0) {
+    const index = Math.floor(Math.random() * results.length);
+    const [product] = results.splice(index, 1);
+    if (cart.has(product.id)) continue;
+
+    const quantity = await addProductToCart(page, product.url);
+    if (quantity !== undefined) return { id: product.id, quantity };
+  }
+
+  throw new Error(`Brak dostępnego produktu spoza koszyka w wynikach dla „${searchTerm}”`);
+}
+
+async function readCatalogProducts(page: Page) {
+  return page.locator('#js-product-list article[data-id-product]').evaluateAll(cards =>
+    cards.flatMap(card => {
+      const id = card.getAttribute('data-id-product');
+      const link = card.querySelector<HTMLAnchorElement>('.product-title a');
+      return id && link ? [{ id, url: link.href }] : [];
+    }),
+  );
+}
+
+async function registerNewUser(page: Page) {
+  const name = 'Klient';
+  const surname = 'Testowy';
+  const fullName = `${name} ${surname}`;
+  const email = `${name}.${surname}+${Date.now()}@test-email.com`;
+
+  await page.locator('header').getByRole('link', { name: 'Zaloguj się' }).click();
+  await page.getByRole('link', { name: 'Nie masz konta? Załóż je tutaj' }).click();
+  await page.getByRole('radio', { name: 'Pan', exact: true }).check();
+  await page.getByRole('textbox', { name: 'Imię' }).fill(name);
+  await page.getByRole('textbox', { name: 'Nazwisko' }).fill(surname);
+  await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
+  await page.getByRole('textbox', { name: 'Pole wprowadzania hasła' }).fill('Haslo Klienta Do Testow');
+  await page.getByRole('checkbox', { name: 'Akceptuję ogólne warunki' }).check();
+  await page.getByRole('checkbox', { name: 'Wiadomość o przetwarzaniu' }).check();
+
+  await page.getByRole('button', { name: 'Zapisz' }).click();
+  await expect(page.getByRole('link', { name: fullName })).toBeVisible();
+}

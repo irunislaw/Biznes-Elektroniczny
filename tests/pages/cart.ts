@@ -42,6 +42,16 @@ export async function openCart(page: Page) {
   await page.locator('#_desktop_cart').getByRole('link', { name: /Koszyk/i }).click();
 }
 
+export async function removeProductFromCart(page: Page, productId: string) {
+  await test.step(`Usuń pozycję produktu o ID ${productId}`, async () => {
+    const removeLink = page.locator('.cart-overview').locator(
+      `[data-link-action="delete-from-cart"][data-id-product="${productId}"]`,
+    );
+    await removeLink.click();
+    await expect(removeLink).toHaveCount(0);
+  });
+}
+
 export async function expectCartContents(page: Page, expectedProducts: ReadonlyMap<string, number>) {
   const cart = page.locator('.cart-overview');
   await expect(cart).toBeVisible();
