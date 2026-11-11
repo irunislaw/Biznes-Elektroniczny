@@ -40,4 +40,4 @@ Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
 Import można bezpiecznie uruchomić kilka razy. Istniejące kategorie są rozpoznawane po rodzicu i `link_rewrite`, a produkty po `reference`. Zdjęcia są wysyłane tylko produktom, które jeszcze ich nie mają.
 
 ## Logi
-Każdy przebieg zapisuje log `import_<data>.log` z ostrzeżeniami, liczbą produktów o stanie 0 i całkowitym czasem importu. Import 1151 produktów do pustego sklepu trwa ok. 4–5 min (limit: 30 min), a ponowne uruchomienie ok. 23 s.
+Każdy przebieg zapisuje log `import_<data>.log` z ostrzeżeniami, liczbą produktów o stanie 0 i całkowitym czasem importu. Import 1151 produktów do pustego sklepu trwa ok. 4–5 min (limit: 30 min), a ponowne uruchomienie ok. 1 min.
