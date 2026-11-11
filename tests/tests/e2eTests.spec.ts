@@ -1,60 +1,40 @@
 import { test, expect } from '@playwright/test';
+import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
+import { prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
+import { registerNewUser } from '../pages/registration';
 
-test('search product by name and add to cart', async({page}) => {
-    await page.goto('/');
+test('koszyk i rejestracja klienta', async ({ page }) => {
+  test.setTimeout(150_000);
 
-    //searching
-    const searchBar = page.getByRole('textbox', { name: 'Szukaj' })
-    await searchBar.fill('frame');
+  const cart = await test.step('1. Dodanie do koszyka 10 produktów', () => prepareCartWithTenProducts(page));
 
-    await Promise.all([
-      page.waitForURL(/controller=search/),
-      searchBar.press('Enter')
-    ]);
+  await test.step('2. Wyszukanie produktu po nazwie i dodanie do koszyka losowego', async () => {
+    const { id, quantity } = await searchAndAddNewProduct(page, cart);
+    cart.set(id, quantity);
+    expect(cart.size).toBe(11);
+    await openCart(page);
+    await expectCartContents(page, cart);
+  });
 
-    //choosing random product
-    const products = page.locator('.product');
-    const productsCount = await products.count();
-    expect(productsCount).toBeGreaterThan(0);
-    
-    const chosenProduct = products.nth(Math.floor(Math.random() * productsCount));
+  await test.step('3. Usunięcie z koszyka 3 produktów', async () => {
+    const total = page.locator('.cart-summary-totals .cart-total .value').last();
+    await expect(total).toHaveText(/\d/);
+    const totalBefore = await total.innerText();
 
-    //getting product name
-    const productName = await chosenProduct.locator('.product-title').textContent();
-    const productNameClean = productName?.replace(/\.{3}/g, '').trim();
+    for (const id of [...cart.keys()].slice(0, 3)) {
+      await removeProductFromCart(page, id);
+      cart.delete(id);
+    }
 
-    //adding to cart
-    await chosenProduct.getByRole('link').first().click();
-    await page.getByRole('button', { name: 'Dodaj do koszyka' }).click();
+    expect(cart.size).toBe(8);
+    await expectCartContents(page, cart);
+    await expect(total, 'Łączna cena po usunięciu produktów').not.toHaveText(totalBefore);
+    await expect(total).toHaveText(/\d/);
+  });
 
-    //checking if its in cart
-    await page.getByRole('link', { name: 'Przejdź do realizacji' }).click();
-    await expect(page.getByRole('link', { name: productNameClean})).toBeVisible();
-});
-
-test('register new user', async ({ page }) => {
-  const name = 'Klient';
-  const surname = 'Testowy';
-  const fullName = `${name} ${surname}`;
-  const email = `${name}.${surname}+${Date.now()}@test-email.com`;
-
-  await page.goto('/');
-
-  await page.locator('header').getByRole('link', { name: 'Zaloguj się' }).click();
-  await page.getByRole('link', { name: 'Nie masz konta? Załóż je tutaj' }).click();
-
-  //client data
-  await page.getByRole('radio', { name: 'Pan', exact: true }).check();
-  await page.getByRole('textbox', { name: 'Imię' }).fill(name);
-  await page.getByRole('textbox', { name: 'Nazwisko' }).fill(surname);
-  await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
-  await page.getByRole('textbox', { name: 'Pole wprowadzania hasła' }).fill('Haslo Klienta Do Testow');
-
-  //permissions
-  await page.getByRole('checkbox', { name: 'Akceptuję ogólne warunki' }).check();
-  await page.getByRole('checkbox', { name: 'Wiadomość o przetwarzaniu' }).check();
-
-
-  await page.getByRole('button', { name: 'Zapisz' }).click();
-  await expect(page.getByRole('link', { name: fullName })).toBeVisible();
+  await test.step('4. Rejestracja nowego konta', async () => {
+    await registerNewUser(page);
+    await openCart(page);
+    await expectCartContents(page, cart);
+  });
 });
