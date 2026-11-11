@@ -11,6 +11,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - db_data:/var/lib/mysql
+      - ./dane:/opt/dane:ro
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 10s
@@ -37,11 +38,16 @@ services:
       ADMIN_MAIL: ${ADMIN_MAIL}
       ADMIN_PASSWD: ${ADMIN_PASSWORD}
       PS_WEBSERVICE_KEY: ${PS_WEBSERVICE_KEY}
+      # make init: archiwum zdjęć z GitHub Releases, token tylko przy prywatnym repozytorium
+      ZDJECIA_URL: ${ZDJECIA_URL:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     volumes:
       - shop_data:/var/www/html
       - ./apache/forwarded-https.conf:/etc/apache2/conf-enabled/forwarded-https.conf:ro
       - ./import/init_webservice.php:/opt/import/init_webservice.php:ro
       - ./config:/opt/prestashop-config:ro
+      - ./dane:/opt/dane:ro
+      - ../scraper-results:/opt/scraper-results:ro
   mailpit:
     image: axllent/mailpit:v1.31
     restart: unless-stopped
