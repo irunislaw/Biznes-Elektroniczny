@@ -25,6 +25,11 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - wyniki: katalog `scraper-results/`
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
 
+# Import
+Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`.
+
+- uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
+
 # Testowanie
 `make test` - uruchamia testy E2E sklepu w Playwright i generuje raport HTML z wynikami.
 
