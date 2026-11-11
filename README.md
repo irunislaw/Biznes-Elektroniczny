@@ -23,7 +23,7 @@ Pomiar od `git clone` do działającego sklepu z pełnymi danymi: `git clone`, `
 
 | Osoba | System | Łącze | Obrazy Dockera pobrane wcześniej? | Czas |
 |---|---|---|---|---|
-| _do uzupełnienia_ | Windows 11, Docker Desktop | | | |
+| Michał Irek | Windows 11, Docker Desktop | około 700 mb/s | tak | 173 s (2 min 53 s) |
 | _do uzupełnienia_ | Linux albo macOS | | | |
 
 # Dane sklepu
