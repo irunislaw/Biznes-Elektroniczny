@@ -12,6 +12,8 @@ FIXTURES_PATH = DIRECTORY / "tests/fixtures"
 SAVE_URLS_PATH = DIRECTORY.parent / "scraper-results/results_urls.json"
 SAVE_PRODUCTS_PATH = DIRECTORY.parent / "scraper-results/results.json"
 SAVE_CATEGORY_TREE_PATH = DIRECTORY.parent / "scraper-results/category-tree.json"
+# Pobrane karty produktów (HTML); kolejne uruchomienie bierze je z dysku zamiast ze sklepu
+PAGES_CACHE_PATH = DIRECTORY.parent / "scraper-results/cache"
 LOGGING_PATH = DIRECTORY.parent / "scraper-results"
 
 # Zdjęcia produktów (download_images.py, check_images.py)

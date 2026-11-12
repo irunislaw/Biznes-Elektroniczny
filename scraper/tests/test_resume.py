@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from conftest import FakeClient
-from main import scrape_products
+from main import CachedClient, scrape_products
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -99,3 +99,49 @@ def test_resume_false_starts_from_scratch(tmp_path, responses):
 
     assert client.requested == [UKULELE, KABEL, SKRZYPCE]  # --od-nowa pobiera wszystko
     assert saved_urls(path) == [UKULELE, KABEL, SKRZYPCE]  # bez duplikatów ze starego pliku
+
+
+def test_second_run_sends_no_requests(tmp_path, responses):
+    path = tmp_path / "results.json"
+    cache_dir = tmp_path / "cache"
+    category_ids = {333, 292}  # skrzypce (241) poza drzewem: pominięte, więc nie trafią do results.json
+
+    first = CachedClient(FakeClient(responses), cache_dir)
+    scrape_products(first, PRODUCT_CATEGORIES, category_ids, path)
+
+    assert first.stats == {"pobrane": 3}
+    assert sorted(file.name for file in cache_dir.iterdir()) == ["1589.html", "2416.html", "3916.html"]
+
+    shop = FakeClient(responses)
+    second = CachedClient(shop, cache_dir)
+    products, failed, skipped = scrape_products(second, PRODUCT_CATEGORIES, category_ids, path)
+
+    assert shop.requested == []  # ani zapisanych, ani pominiętych kart nie pobiera drugi raz
+    assert second.stats == {"z dysku": 1}  # pominięta karta z dysku, zapisane produkty z results.json
+    assert (failed, skipped) == (0, 1)
+    assert saved_urls(path) == [UKULELE, KABEL]
+
+
+def test_od_nowa_ignores_cache(tmp_path, responses):
+    cache_dir = tmp_path / "cache"
+    first = CachedClient(FakeClient(responses), cache_dir)
+    scrape_products(first, PRODUCT_CATEGORIES, CATEGORY_IDS, tmp_path / "results.json")
+
+    shop = FakeClient(responses)
+    second = CachedClient(shop, cache_dir, use_cache=False)
+    scrape_products(second, PRODUCT_CATEGORIES, CATEGORY_IDS, tmp_path / "results.json", resume=False)
+
+    assert shop.requested == [UKULELE, KABEL, SKRZYPCE]
+    assert second.stats == {"pobrane": 3}
+
+
+def test_failed_download_is_not_cached(tmp_path, responses):
+    cache_dir = tmp_path / "cache"
+
+    assert CachedClient(FakeClient({}), cache_dir).get(KABEL) is None
+    assert list(cache_dir.iterdir()) == []  # nieudane pobranie nie trafia na dysk
+
+    shop = FakeClient(responses)
+    CachedClient(shop, cache_dir).get(KABEL)
+    assert shop.requested == [KABEL]  # więc kolejne uruchomienie próbuje jeszcze raz
+    assert [file.name for file in cache_dir.iterdir()] == ["3916.html"]

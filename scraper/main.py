@@ -2,11 +2,14 @@ import argparse
 import json
 import logging
 import os
+from collections import Counter
 from datetime import datetime
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import config
 from bs4 import BeautifulSoup
+from images import write_atomic
 from models import Product
 from pydantic import ValidationError
 from shop_client import ShopClient
@@ -207,6 +210,37 @@ def fetch_pages(client, urls):
         yield (url, page.content)
 
 
+class CachedClient:
+    """Zapisuje każdą pobraną kartę na dysk, a przy kolejnym uruchomieniu bierze ją z dysku zamiast ze sklepu.
+
+    Ma tę samą metodę get co ShopClient, więc scrape_products i fetch_pages działają bez zmian.
+    use_cache=False (--od-nowa) pobiera wszystko ze sklepu i nadpisuje zapisane karty.
+    """
+
+    def __init__(self, client, cache_dir, use_cache=True):
+        self.client = client
+        self.cache_dir = cache_dir
+        self.use_cache = use_cache
+        self.stats = Counter()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def get(self, url):
+        # Adres .../koncertowe/1589-ukulele-....html -> plik 1589.html (id produktu)
+        product_id = urlsplit(url).path.rsplit("/", 1)[-1].split("-")[0]
+        path = self.cache_dir / f"{product_id}.html"
+
+        if self.use_cache and path.exists():
+            self.stats["z dysku"] += 1
+            return SimpleNamespace(content=path.read_bytes())
+
+        page = self.client.get(url)
+        if page is not None:
+            # Przez plik tymczasowy: przerwanie nie zostawi uciętej strony, którą kolejny przebieg uznałby za pobraną
+            write_atomic(path, page.content)
+            self.stats["pobrane"] += 1
+        return page
+
+
 def save_json(path, data):
     """Zapis przez plik tymczasowy (jak write_atomic w images.py): przerwanie nie zostawia uciętego JSON-a.
 
@@ -323,7 +357,7 @@ def log_subcategories(node, depth=1):
         log_subcategories(child, depth + 1)
 
 
-def log_summary(root, products, product_categories, rejected, skipped, client):
+def log_summary(root, products, product_categories, rejected, skipped, client, page_stats):
     categories = root["children"]
     time_elapsed, tempo = client.client_stats()
 
@@ -332,6 +366,8 @@ def log_summary(root, products, product_categories, rejected, skipped, client):
     logger.info("Pominięte (kategoria główna poza drzewem): %d", skipped)
     logger.info("Odrzucone przez walidację: %d", rejected)
     logger.info("Nieudane pobrania: %d", len(client.failed_urls))
+    logger.info("Karty produktów wzięte z dysku: %d", page_stats["z dysku"])
+    logger.info("Karty produktów pobrane ze sklepu: %d", page_stats["pobrane"])
     logger.info("Zapisane produkty: %d", len(products))
     logger.info("Produkty z co najmniej 2 zdjęciami: %d", sum(len(p.image_urls) >= 2 for p in products))
     logger.info("Kategorie: %d", len(categories))
@@ -378,13 +414,14 @@ def main(resume=True):
 
     save_json(config.SAVE_URLS_PATH, product_categories)
 
+    pages_client = CachedClient(client, config.PAGES_CACHE_PATH, use_cache=resume)
     products, failed, skipped = scrape_products(
-        client, product_categories, category_ids, config.SAVE_PRODUCTS_PATH, resume=resume
+        pages_client, product_categories, category_ids, config.SAVE_PRODUCTS_PATH, resume=resume
     )
 
     saved_urls = {str(p.url) for p in products}
     count_saved(root, saved_urls)
-    log_summary(root, products, product_categories, failed, skipped, client)
+    log_summary(root, products, product_categories, failed, skipped, client, pages_client.stats)
 
 
 if __name__ == "__main__":
