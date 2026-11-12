@@ -27,7 +27,7 @@ Pomiar od `git clone` do działającego sklepu z pełnymi danymi: `git clone`, `
 | _do uzupełnienia_ | Linux albo macOS | | | |
 
 # Dane sklepu
-Produkty nie są importowane na każdym komputerze. Osoba, która zrobiła import, zapisuje zrzut sklepu (`make zrzut`), a `make init` odtwarza go u innych:
+Produkty nie są importowane na każdym komputerze. Osoba, która zrobiła import, zapisuje zrzut sklepu (`make zrzut`), a `make init` odtwarza go u innych. Uzasadnienie i rozważane opcje są w [ADR-0002](docs/adr/0002-inicjalizacja-danych.md). Pliki z danymi:
 
 | Co | Gdzie | Rozmiar |
 |---|---|---|
