@@ -31,11 +31,38 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 
     python main.py             # produkty -> scraper-results/results.json
+    python main.py --od-nowa   # wszystko od zera: ignoruje zapisane results.json i category-tree.json
     python download_images.py  # zdjęcia -> scraper-results/images/, ścieżki do results.json
     python check_images.py     # kontrola zdjęć 20 losowych produktów
 
 Pełny przebieg trwa ok. 12 minut (730,96 s przy 2 zapytaniach/s i 1288 adresach produktów).
 Czas zależy od liczby produktów i ponowień.
+
+## Przerwanie i wznawianie
+Scraper można przerwać (Ctrl+C) i uruchomić ponownie. Produktów, które już są
+w `results.json`, nie pobiera drugi raz.
+
+- `results.json` jest zapisywany co 50 pobranych kart produktów (`BATCH_SIZE` w `main.py`)
+  i jeszcze raz przy przerwaniu. Zapis idzie przez plik tymczasowy, więc przerwanie
+  nie zostawia uciętego JSON-a. Format pliku jest taki sam jak przy zapisie na końcu przebiegu.
+- Po Ctrl+C log kończy się ostatnim zapisem i ostrzeżeniem (bez tracebacku):
+
+      INFO    __main__: Zapisano 461 produktów do results.json
+      WARNING __main__: Przerwano (Ctrl+C). Uruchom ponownie, aby wznowić od zapisanych wyników.
+
+- Ponowne `python main.py` wczytuje drzewo kategorii z `category-tree.json` (bez zapytań
+  o listy kategorii) i produkty z `results.json`, a pobiera tylko brakujące adresy:
+
+      INFO    __main__: Drzewo kategorii wczytane z category-tree.json
+      INFO    __main__: Wczytane z results.json: 461 produktów, do pobrania: 869 adresów
+
+- `results.json` i `category-tree.json` są w repozytorium, więc samo `python main.py`
+  po sklonowaniu też wznawia od nich. Żeby zebrać wszystko od zera (nowe drzewo
+  i nowe produkty), uruchom `python main.py --od-nowa`. Przerwany przebieg `--od-nowa`
+  wznawia się zwykłym `python main.py`.
+- Drzewo kategorii zapisuje się dopiero w całości, na początku przebiegu od zera
+  (ok. 1,5 min, 174 zapytania w ostatnim przebiegu). Przerwanie w tym czasie nie zmienia
+  plików, więc wystarczy uruchomić to samo polecenie jeszcze raz.
 
 ## Wynik
 Wszystkie pliki są zapisywane w UTF-8:
@@ -84,8 +111,8 @@ zdjęcie i dopisuje przy produkcie `image_files`.
   pobierze, kolejne zachowują swoje numery.
 - **Bez ponownego pobierania**: plik, który już jest w `scraper-results/images/`, jest pomijany.
   Zapis idzie przez plik tymczasowy, więc przerwanie (Ctrl+C) nie zostawia uciętego zdjęcia.
-  Po ponownym `main.py` (który nadpisuje `results.json`) wystarczy znów uruchomić
-  `download_images.py`: tylko uzupełni `image_files`, bez zapytań do sklepu.
+  Po ponownym `main.py` wystarczy znów uruchomić `download_images.py`: pobierze tylko
+  brakujące zdjęcia, a pozostałym produktom uzupełni `image_files` bez zapytań do sklepu.
 - **Skalowanie** (`images.py`, Pillow): dłuższy bok najwyżej 1600 px (mniejsze zdjęcia nie są
   powiększane), JPEG z jakością obniżaną od 90 co 5, aż plik ma ≤300 000 B, czyli ≤300 KB przy
   obu definicjach KB. Gdyby nie wystarczyła nawet jakość 20, obraz jest zmniejszany o 10%
@@ -140,7 +167,7 @@ w każdej kategorii i podkategorii:
 1. **`ShopClient`** - User-Agent, `robots.txt`, limit tempa, ponawianie
    (do `MAX_ATTEMPTS` prób przy błędzie sieci i kodach 429/5xx, z odstępem 2 s, 4 s…);
    po wyczerpaniu prób albo przy innym kodzie zwraca `None`.
-2. **`main`** dla każdego adresu z `CATEGORY_URLS` buduje drzewo kategorii.
+2. **`main`** wczytuje drzewo kategorii z `category-tree.json`, a gdy pliku nie ma albo podano `--od-nowa`, buduje je dla każdego adresu z `CATEGORY_URLS`.
 3. **`build_category_tree`** rekurencyjnie schodzi po podkategoriach, a w liściach zbiera produkty i liczy je.
 4. **`collect_products`** przechodzi przez kolejne strony listy produktów (`?page=1`, `?page=2`, …), dopóki istnieje link „następna strona”.
 5. **`collect_product_categories`** tworzy słownik produkt → kategorie. Kluczem jest adres, więc produkt z kilku kategorii występuje raz.
@@ -148,7 +175,8 @@ w każdej kategorii i podkategorii:
 7. **`fetch_pages`** pobiera karty produktów (generator – strony nie są trzymane wszystkie w pamięci).
 8. **`parse_product`** wyciąga dane z atrybutu `data-product` (JSON osadzony w HTML) i breadcrumbu.
 9. **`parse_products`** pomija produkty z kategorią główną spoza drzewa, uzupełnia `other_category_ids` i waliduje rekord modelem `Product`; błędny rekord trafia do logu, nie do wyników.
-10. **`log_summary`** po zapisaniu wyników wypisuje podsumowanie przebiegu.
+10. **`scrape_products`** pomija adresy, które już są w `results.json`, pozostałe pobiera (`fetch_pages`) i parsuje (`parse_products`), a wynik zapisuje co 50 kart i przy przerwaniu.
+11. **`log_summary`** po zapisaniu wyników wypisuje podsumowanie przebiegu.
 
 
 ## Testy i lint
@@ -168,6 +196,9 @@ zamiast `ShopClient`, więc sprawdza skalowanie, nazwy plików, pomijanie pobran
 i log małych zdjęć bez połączenia ze sklepem. `fake-page-5.html` to ręcznie
 zmodyfikowana strona z VAT 8%, atrybutami i wagą - sprawdza parsowanie innej stawki VAT
 oraz pól, których prawdziwe strony sklepu nie mają.
+`test_resume.py` używa tego samego sztucznego klienta (`tests/conftest.py`) i stron z `fixtures/`:
+symuluje Ctrl+C przy 3. produkcie i sprawdza, że wznowienie pobiera tylko brakującą kartę,
+że zapis idzie po każdej paczce i że `--od-nowa` zaczyna od pustej listy.
 
 ## Znane ograniczenia
  
@@ -180,3 +211,4 @@ oraz pól, których prawdziwe strony sklepu nie mają.
 - Produkt, którego kategoria główna jest poza wybranym drzewem, jest pomijany (161 w ostatnim przebiegu), bo import nie miałby go do czego przypisać.
 - Produkt bez zdjęć odpada w walidacji (`image_urls` wymaga co najmniej 1 zdjęcia; 3 rekordy w ostatnim przebiegu).
 - `other_category_ids` zawiera tylko kategorie z wybranego drzewa, więc nie jest to pełna lista kategorii produktu w sklepie.
+- Produkty pominięte (kategoria główna poza drzewem) i odrzucone przez walidację nie trafiają do `results.json`, więc po wznowieniu są pobierane ponownie (w ostatnim pełnym przebiegu 161 + 3 adresy, ok. 1,5 min).
