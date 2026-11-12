@@ -1,5 +1,7 @@
+import argparse
 import json
 import logging
+import os
 from datetime import datetime
 from urllib.parse import urlsplit
 
@@ -10,6 +12,9 @@ from pydantic import ValidationError
 from shop_client import ShopClient
 
 logger = logging.getLogger(__name__)
+
+# Co ile pobranych kart produktów zapisywać results.json
+BATCH_SIZE = 50
 
 
 def parse_subcategory_urls(html):
@@ -202,6 +207,59 @@ def fetch_pages(client, urls):
         yield (url, page.content)
 
 
+def save_json(path, data):
+    """Zapis przez plik tymczasowy (jak write_atomic w images.py): przerwanie nie zostawia uciętego JSON-a.
+
+    Tryb tekstowy i te same parametry json.dump co wcześniej, więc format pliku się nie zmienia.
+    """
+    tmp_path = path.with_name(path.name + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, path)
+
+
+def load_saved_products(path):
+    """Produkty z poprzedniego (np. przerwanego) przebiegu; bez pliku zaczynamy od zera."""
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as file:
+        return [Product.model_validate(product) for product in json.load(file)]
+
+
+def save_products(path, products):
+    save_json(path, [product.model_dump(mode="json") for product in products])
+
+
+def scrape_products(client, product_categories, category_ids, path, resume=True, batch_size=BATCH_SIZE):
+    """Pobiera karty produktów, których jeszcze nie ma w path, i dopisuje je do tego pliku.
+
+    Zapis idzie co batch_size pobranych kart oraz na końcu, także po Ctrl+C,
+    więc kolejne uruchomienie nie pobiera już zapisanych produktów. resume=False zaczyna od pustej listy.
+    """
+    products = load_saved_products(path) if resume else []
+    saved_urls = {str(product.url) for product in products}
+    urls = [url for url in product_categories if url not in saved_urls]
+    logger.info("Wczytane z %s: %d produktów, do pobrania: %d adresów", path.name, len(products), len(urls))
+
+    failed = 0
+    skipped = 0
+    try:
+        for number, page in enumerate(fetch_pages(client, urls), 1):
+            parsed, page_failed, page_skipped = parse_products([page], product_categories, category_ids)
+            products.extend(parsed)
+            failed += page_failed
+            skipped += page_skipped
+            if number % batch_size == 0:
+                save_products(path, products)
+                logger.info("Zapisano %d produktów do %s", len(products), path.name)
+    finally:
+        # Także po Ctrl+C: kolejne uruchomienie pominie wszystko, co tu zapisano
+        save_products(path, products)
+        logger.info("Zapisano %d produktów do %s", len(products), path.name)
+
+    return products, failed, skipped
+
+
 def print_category_tree(tree, depth=0):
     print("\t" * depth, f"{tree['name']} {tree['count']}")
     if len(tree["children"]) == 0:
@@ -287,7 +345,7 @@ def log_summary(root, products, product_categories, rejected, skipped, client):
     logger.info("Średnie tempo: %.2f zapytań/s", tempo)
 
 
-def main():
+def main(resume=True):
     setup_logging()
     client = ShopClient(
         config.USER_AGENT,
@@ -296,17 +354,21 @@ def main():
         config.MAX_ATTEMPTS,
     )
 
-    category_trees = [build_category_tree(client, tree) for tree in config.CATEGORY_URLS]
-    root = {
-        "url": None,
-        "name": "glowna",
-        "children": category_trees,
-        "products": [],
-        "count": sum([t["count"] for t in category_trees]),
-    }
-
-    with open(config.SAVE_CATEGORY_TREE_PATH, "w", encoding="utf-8") as file:
-        json.dump(root, file, ensure_ascii=False, indent=2)
+    if resume and config.SAVE_CATEGORY_TREE_PATH.exists():
+        # Drzewo z poprzedniego przebiegu: wznowienie nie pobiera list kategorii drugi raz
+        logger.info("Drzewo kategorii wczytane z %s", config.SAVE_CATEGORY_TREE_PATH.name)
+        with open(config.SAVE_CATEGORY_TREE_PATH, encoding="utf-8") as file:
+            root = json.load(file)
+    else:
+        category_trees = [build_category_tree(client, tree) for tree in config.CATEGORY_URLS]
+        root = {
+            "url": None,
+            "name": "glowna",
+            "children": category_trees,
+            "products": [],
+            "count": sum([t["count"] for t in category_trees]),
+        }
+        save_json(config.SAVE_CATEGORY_TREE_PATH, root)
 
     product_categories = {}
     collect_product_categories(root, product_categories)
@@ -314,14 +376,11 @@ def main():
     category_ids = set()
     collect_category_ids(root, category_ids)
 
-    with open(config.SAVE_URLS_PATH, "w", encoding="utf-8") as file:
-        json.dump(product_categories, file, ensure_ascii=False, indent=2)
+    save_json(config.SAVE_URLS_PATH, product_categories)
 
-    pages = fetch_pages(client, product_categories.keys())
-    products, failed, skipped = parse_products(pages, product_categories, category_ids)
-    products_json = [product.model_dump(mode="json") for product in products]
-    with open(config.SAVE_PRODUCTS_PATH, "w", encoding="utf-8") as save:
-        json.dump(products_json, save, indent=2, ensure_ascii=False)
+    products, failed, skipped = scrape_products(
+        client, product_categories, category_ids, config.SAVE_PRODUCTS_PATH, resume=resume
+    )
 
     saved_urls = {str(p.url) for p in products}
     count_saved(root, saved_urls)
@@ -329,4 +388,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Pobiera produkty ze sklepu; wznawia od zapisanego results.json.")
+    parser.add_argument("--od-nowa", action="store_true", help="ignoruje zapisane wyniki, pobiera wszystko od zera")
+    try:
+        main(resume=not parser.parse_args().od_nowa)
+    except KeyboardInterrupt:
+        logger.warning("Przerwano (Ctrl+C). Uruchom ponownie, aby wznowić od zapisanych wyników.")
