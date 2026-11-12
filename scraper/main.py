@@ -214,22 +214,27 @@ class CachedClient:
     """Zapisuje każdą pobraną kartę na dysk, a przy kolejnym uruchomieniu bierze ją z dysku zamiast ze sklepu.
 
     Ma tę samą metodę get co ShopClient, więc scrape_products i fetch_pages działają bez zmian.
-    use_cache=False (--od-nowa) pobiera wszystko ze sklepu i nadpisuje zapisane karty.
+    clear=True (--od-nowa) na starcie usuwa zapisane karty, więc wszystko jest pobierane od nowa.
     """
 
-    def __init__(self, client, cache_dir, use_cache=True):
+    def __init__(self, client, cache_dir, clear=False):
         self.client = client
         self.cache_dir = cache_dir
-        self.use_cache = use_cache
         self.stats = Counter()
         cache_dir.mkdir(parents=True, exist_ok=True)
+        if clear:
+            # Tylko karty i ewentualne .tmp z przerwanego zapisu, nie cały katalog
+            files = list(cache_dir.glob("*.html*"))
+            for file in files:
+                file.unlink()
+            logger.info("Wyczyszczono %s (usunięte pliki: %d)", cache_dir.name, len(files))
 
     def get(self, url):
         # Adres .../koncertowe/1589-ukulele-....html -> plik 1589.html (id produktu)
         product_id = urlsplit(url).path.rsplit("/", 1)[-1].split("-")[0]
         path = self.cache_dir / f"{product_id}.html"
 
-        if self.use_cache and path.exists():
+        if path.exists():
             self.stats["z dysku"] += 1
             return SimpleNamespace(content=path.read_bytes())
 
@@ -414,7 +419,7 @@ def main(resume=True):
 
     save_json(config.SAVE_URLS_PATH, product_categories)
 
-    pages_client = CachedClient(client, config.PAGES_CACHE_PATH, use_cache=resume)
+    pages_client = CachedClient(client, config.PAGES_CACHE_PATH, clear=not resume)
     products, failed, skipped = scrape_products(
         pages_client, product_categories, category_ids, config.SAVE_PRODUCTS_PATH, resume=resume
     )

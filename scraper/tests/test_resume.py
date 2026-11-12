@@ -122,13 +122,16 @@ def test_second_run_sends_no_requests(tmp_path, responses):
     assert saved_urls(path) == [UKULELE, KABEL]
 
 
-def test_od_nowa_ignores_cache(tmp_path, responses):
+def test_od_nowa_clears_cache(tmp_path, responses):
     cache_dir = tmp_path / "cache"
     first = CachedClient(FakeClient(responses), cache_dir)
     scrape_products(first, PRODUCT_CATEGORIES, CATEGORY_IDS, tmp_path / "results.json")
+    (cache_dir / "1589.html.tmp").write_bytes(b"ucieta strona")  # pozostałość po przerwanym zapisie
 
     shop = FakeClient(responses)
-    second = CachedClient(shop, cache_dir, use_cache=False)
+    second = CachedClient(shop, cache_dir, clear=True)
+    assert list(cache_dir.iterdir()) == []  # stare karty usunięte od razu, przed pierwszym pobraniem
+
     scrape_products(second, PRODUCT_CATEGORIES, CATEGORY_IDS, tmp_path / "results.json", resume=False)
 
     assert shop.requested == [UKULELE, KABEL, SKRZYPCE]

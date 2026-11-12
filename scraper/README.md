@@ -32,7 +32,7 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 
     python main.py             # produkty -> scraper-results/results.json
-    python main.py --od-nowa   # wszystko od zera: ignoruje results.json, category-tree.json i cache/
+    python main.py --od-nowa   # wszystko od zera: ignoruje results.json i category-tree.json, czyści cache/
     python download_images.py  # zdjęcia -> scraper-results/images/, ścieżki do results.json
     python check_images.py     # kontrola zdjęć 20 losowych produktów
 
@@ -69,9 +69,9 @@ zapisanych w `results.json`, ani żadnej karty produktu, która jest już na dys
 
 - `results.json` i `category-tree.json` są w repozytorium, więc samo `python main.py`
   po sklonowaniu też wznawia od nich. Żeby zebrać wszystko od zera, uruchom
-  `python main.py --od-nowa`: ignoruje `results.json`, `category-tree.json` i karty
-  w `cache/` (pobiera je od nowa i nadpisuje). Przerwany przebieg `--od-nowa` wznawia się
-  zwykłym `python main.py`.
+  `python main.py --od-nowa`: ignoruje `results.json` i `category-tree.json`, a na starcie
+  czyści `cache/`. Przerwany przebieg `--od-nowa` wznawia się zwykłym `python main.py`
+  i korzysta już tylko z kart pobranych od nowa.
 - Drzewo kategorii zapisuje się dopiero w całości, na początku przebiegu od zera
   (ok. 1,5 min, 174 zapytania w ostatnim przebiegu). Przerwanie w tym czasie nie zmienia
   plików, więc wystarczy uruchomić to samo polecenie jeszcze raz.
@@ -212,8 +212,8 @@ oraz pól, których prawdziwe strony sklepu nie mają.
 symuluje Ctrl+C przy 3. produkcie i sprawdza, że wznowienie pobiera tylko brakującą kartę,
 że zapis idzie po każdej paczce i że `--od-nowa` zaczyna od pustej listy.
 Trzy kolejne testy sprawdzają cache kart (`CachedClient`): drugie uruchomienie na tych samych
-adresach nie wysyła żadnego zapytania (także o kartę pominiętą), `--od-nowa` pobiera wszystko
-mimo zapisanych kart, a nieudane pobranie nie trafia na dysk.
+adresach nie wysyła żadnego zapytania (także o kartę pominiętą), `--od-nowa` czyści cache
+(także pliki `.tmp`) i pobiera wszystko od nowa, a nieudane pobranie nie trafia na dysk.
 
 ## Znane ograniczenia
  
