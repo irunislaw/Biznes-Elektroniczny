@@ -2,10 +2,10 @@
 
 import io
 import random
-from types import SimpleNamespace
 
 import pytest
 from check_images import check_file
+from conftest import FakeClient
 from images import START_QUALITY, ImageDownloader, resize_image
 from PIL import Image
 
@@ -73,19 +73,6 @@ def test_transparent_png_gets_white_background():
 
     assert result.mode == "RGB"
     assert all(channel > 245 for channel in result.getpixel((50, 50)))
-
-
-class FakeClient:
-    """Zastępuje ShopClient: zwraca przygotowane odpowiedzi i zapamiętuje pobierane adresy."""
-
-    def __init__(self, responses):
-        self.responses = responses
-        self.requested = []
-
-    def get(self, url):
-        self.requested.append(url)
-        content = self.responses.get(url)
-        return SimpleNamespace(content=content) if content is not None else None
 
 
 LARGE_URL = "https://gitara-sklep.pl/1/duze.jpg"
