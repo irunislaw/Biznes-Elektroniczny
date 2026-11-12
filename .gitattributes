@@ -1,1 +1,4 @@
 *.sh text eol=lf
+# Czytane w kontenerze przez deploy/dane/zdjecia.sh. Z CRLF suma nie zgadzałaby się z pobranym archiwum.
+*.sha256 text eol=lf
+*.gz binary

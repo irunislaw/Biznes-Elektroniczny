@@ -5,15 +5,15 @@ E-commerce project to create 1:1 representation of existing shop in PrestaShop 8
  Tymon Dera, Maria Rek, Seweryn Grabowski, Aleksandra Wiśniewska, Michał Irek
 
 # Uruchomienie
-Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git. Na Windowsie polecenia wpisujemy w Git Bash. Porty 8080 i 8025 muszą być wolne.
+Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git. Na Windowsie polecenia wpisujemy w Git Bash. Porty 8080, 8443 i 8025 muszą być wolne.
 
 1. Sklonuj repozytorium i wejdź do jego katalogu.
-2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`).
-3. `make up`, a postęp instalacji śledź przez `make logs`. Pierwszy start trwa kilka minut; gotowe, gdy w logach pojawi się `-- Installation successful! --`.
-4. `make init` automatycznie konfiguruje język, walutę, podatki, płatności, przewoźników i pocztę sklepu.
+2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`). Jeśli repozytorium jest prywatne, wpisz też `GITHUB_TOKEN` (zobacz [Dane sklepu](#dane-sklepu)).
+3. `make up` uruchamia kontenery. Przy pierwszym starcie instalator PrestaShop zakłada sklep. Postęp widać w `make logs`.
+4. `make init` czeka na koniec instalacji i wgrywa dane sklepu: kategorie, produkty, zdjęcia i stany magazynowe. Potem konfiguruje język, walutę, podatki, płatności, przewoźników i pocztę. Można go uruchomić od razu po `make up`.
 5. Adresy:
-   - sklep: http://localhost:8080
-   - panel administracyjny: http://localhost:8080/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
+   - sklep: https://localhost:8443 (http://localhost:8080 przekierowuje na HTTPS)
+   - panel administracyjny: https://localhost:8443/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
    - Mailpit: http://localhost:8025
 
 `make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
@@ -49,7 +49,7 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 
 **Gdy archiwum jest niedostępne** (brak sieci do GitHuba, plik usunięty, prywatne repozytorium bez tokenu), `make init` pobiera zdjęcia z adresów zapisanych przez scraper w `scraper-results/results.json`. Robi to tym samym kodem co scraper (`download_images.py --bez-zapisu` w kontenerze Pythona), więc z tym samym User-Agentem, `robots.txt`, limitem 2 zapytań/s i skalowaniem. Pełny zbiór to ok. 6500 zdjęć, czyli ok. 1 h. Zdjęcia, które już są w `scraper-results/images/`, nie są pobierane. Import wysyła zdjęcia produktu w kolejności `image_files`, więc zdjęcie na pozycji N w sklepie to N-ty plik z `image_files` produktu o `reference` równym id ze sklepu źródłowego.
 
-**Archiwum ma mniej niż 1 GB** (946 MB), choć pełne `img/p` ma 1276 MB. `make zrzut` pomija w archiwum największe typy miniatur (zwykle `large_default`), aż archiwum zmieści się w limicie, a `make init` tworzy je z oryginałów. Oryginały są w archiwum zawsze.
+**Archiwum ma mniej niż 1 GB**, choć pełne `img/p` ma ok. 1,2 GB. `make zrzut` pomija w archiwum największe typy miniatur (zwykle `large_default`), aż archiwum zmieści się w limicie, a `make init` tworzy je z oryginałów. Oryginały są w archiwum zawsze.
 
 ## Prywatne repozytorium
 Plik z Releases prywatnego repozytorium nie pobierze się bez logowania. Wtedy w `.env` trzeba wpisać token:
@@ -93,7 +93,7 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
 
 # Import
-Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`.
+Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
 
 - uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
 
@@ -140,4 +140,15 @@ docker compose --env-file .env -f deploy/compose.yaml exec prestashop curl -sS -
 Naprawa:
 1. Wyłącz skanowanie HTTPS w antywirusie albo dodaj `i18n.prestashop-project.org` do wykluczeń. W Nortonie: Zabezpieczenia → Zaawansowane → Safe Web → HTTPS Scanning / zakładka Wykluczenia. Samo wyłączenie blokowania elementów śledzących nie pomaga.
 2. `make reset`, a potem `make up`.
+
+## `make init`: „połączenie HTTPS odrzucone przez certyfikat” albo `CERTIFICATE_VERIFY_FAILED`
+Ta sama przyczyna co wyżej: antywirus podmienia certyfikat, a kontener go odrzuca. `make init` łączy się z kontenerów z tymi adresami:
+- archiwum zdjęć: `github.com`, `api.github.com` (tylko z `GITHUB_TOKEN`), `objects.githubusercontent.com`, `release-assets.githubusercontent.com`,
+- zapasowe pobieranie zdjęć: `pypi.org`, `files.pythonhosted.org`, `gitara-sklep.pl`.
+
+Sprawdzenie, kto wystawił certyfikat, który widzi kontener (`Norton Web/Mail Shield Root` oznacza antywirus):
+```
+docker run --rm alpine/openssl:3.5.8 s_client -connect github.com:443 -servername github.com </dev/null 2>/dev/null | grep issuer=
+```
+Naprawa: wyłącz skanowanie HTTPS albo dodaj te adresy do wykluczeń, potem `make init` jeszcze raz.
 

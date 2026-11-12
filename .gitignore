@@ -30,6 +30,7 @@ download/
 scraper-results/images/
 *.zip
 *.tar.gz
+*.tar
 
 # Kopie zapasowe
 backups/

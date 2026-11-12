@@ -7,7 +7,7 @@ ifneq ($(OS),Windows_NT)
 DOCKER_USER = --user $(shell id -u):$(shell id -g)
 endif
 
-.PHONY: up down init logs reset certs sprawdz
+.PHONY: up down init zrzut logs reset certs sprawdz
 
 certs:
 		docker run --rm $(DOCKER_USER) -v "$(CURDIR):/work" -w /work --entrypoint sh $(OPENSSL_IMAGE) deploy/scripts/gen-cert.sh
@@ -16,17 +16,9 @@ up: certs
 down: 
 		$(COMPOSE) down 
 init:
-		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/locale.php
-		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/taxes.php
-		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/payments.php
-		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/carriers.php
-		$(COMPOSE) exec -T prestashop php /opt/prestashop-config/mail.php
-		$(COMPOSE) exec -T prestashop php /var/www/html/bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
-		$(COMPOSE) exec -T -u www-data prestashop mkdir -p /var/www/html/themes/classic/mails
-		$(COMPOSE) exec -T prestashop php /var/www/html/bin/console prestashop:mail:generate modern pl-PL /var/www/html/themes/classic/mails /var/www/html/themes/classic/modules --overwrite=1
-		$(COMPOSE) exec -T -u root prestashop chown -R www-data:www-data /var/www/html/var/cache/prod
-		$(COMPOSE) exec -T prestashop php /opt/import/init_webservice.php
-		$(COMPOSE) exec -T -u root prestashop sh -c 'mkdir -p /var/www/html/var/cache/prod/purifier && chown -R www-data:www-data /var/www/html/var/cache'
+		COMPOSE="$(COMPOSE)" sh deploy/scripts/init.sh
+zrzut:
+		COMPOSE="$(COMPOSE)" sh deploy/scripts/zrzut.sh
 logs:
 		$(COMPOSE) logs -f prestashop
 reset:

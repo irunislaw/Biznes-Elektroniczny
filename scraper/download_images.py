@@ -2,8 +2,12 @@
 
 Uruchomienie z katalogu scraper/ po main.py:  python download_images.py
 Zdjęcia, które już są w scraper-results/images/, nie są pobierane drugi raz.
+
+--bez-zapisu: tylko pobiera brakujące pliki, nie nadpisuje results.json. Tak uruchamia go make init,
+gdy archiwum zdjęć z Releases jest niedostępne, bo image_files muszą zostać takie jak przy imporcie.
 """
 
+import argparse
 import json
 import logging
 
@@ -26,7 +30,7 @@ def save_products(path, products):
         json.dump([product.model_dump(mode="json") for product in products], file, ensure_ascii=False, indent=2)
 
 
-def main():
+def main(save_results=True):
     setup_logging("images")
     products = load_products(config.SAVE_PRODUCTS_PATH)
     config.IMAGES_PATH.mkdir(parents=True, exist_ok=True)
@@ -48,7 +52,8 @@ def main():
             product.image_files = [f"{prefix}/{name}" for name in files]
     finally:
         # Także po Ctrl+C: zapisane zdjęcia i tak zostają na dysku, a kolejne uruchomienie je pominie
-        save_products(config.SAVE_PRODUCTS_PATH, products)
+        if save_results:
+            save_products(config.SAVE_PRODUCTS_PATH, products)
         stats = downloader.stats
         logger.info(
             "Koniec: pobrane %d, pominięte (już były) %d, błędy %d, małe (< %d px) %d",
@@ -61,4 +66,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Pobiera i skaluje zdjęcia produktów z results.json.")
+    parser.add_argument("--bez-zapisu", action="store_true", help="nie nadpisuje results.json")
+    main(save_results=not parser.parse_args().bez_zapisu)
