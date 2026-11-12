@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 
 import pytest
+from cached_client import CachedClient
 from conftest import FakeClient
-from main import CachedClient, scrape_products
+from main import scrape_products
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -2,22 +2,17 @@ import argparse
 import json
 import logging
 import os
-from collections import Counter
 from datetime import datetime
-from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import config
 from bs4 import BeautifulSoup
-from images import write_atomic
+from cached_client import CachedClient
 from models import Product
 from pydantic import ValidationError
 from shop_client import ShopClient
 
 logger = logging.getLogger(__name__)
-
-# Co ile pobranych kart produktów zapisywać results.json
-BATCH_SIZE = 50
 
 
 def parse_subcategory_urls(html):
@@ -210,42 +205,6 @@ def fetch_pages(client, urls):
         yield (url, page.content)
 
 
-class CachedClient:
-    """Zapisuje każdą pobraną kartę na dysk, a przy kolejnym uruchomieniu bierze ją z dysku zamiast ze sklepu.
-
-    Ma tę samą metodę get co ShopClient, więc scrape_products i fetch_pages działają bez zmian.
-    clear=True (--od-nowa) na starcie usuwa zapisane karty, więc wszystko jest pobierane od nowa.
-    """
-
-    def __init__(self, client, cache_dir, clear=False):
-        self.client = client
-        self.cache_dir = cache_dir
-        self.stats = Counter()
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        if clear:
-            # Tylko karty i ewentualne .tmp z przerwanego zapisu, nie cały katalog
-            files = list(cache_dir.glob("*.html*"))
-            for file in files:
-                file.unlink()
-            logger.info("Wyczyszczono %s (usunięte pliki: %d)", cache_dir.name, len(files))
-
-    def get(self, url):
-        # Adres .../koncertowe/1589-ukulele-....html -> plik 1589.html (id produktu)
-        product_id = urlsplit(url).path.rsplit("/", 1)[-1].split("-")[0]
-        path = self.cache_dir / f"{product_id}.html"
-
-        if path.exists():
-            self.stats["z dysku"] += 1
-            return SimpleNamespace(content=path.read_bytes())
-
-        page = self.client.get(url)
-        if page is not None:
-            # Przez plik tymczasowy: przerwanie nie zostawi uciętej strony, którą kolejny przebieg uznałby za pobraną
-            write_atomic(path, page.content)
-            self.stats["pobrane"] += 1
-        return page
-
-
 def save_json(path, data):
     """Zapis przez plik tymczasowy (jak write_atomic w images.py): przerwanie nie zostawia uciętego JSON-a.
 
@@ -269,7 +228,7 @@ def save_products(path, products):
     save_json(path, [product.model_dump(mode="json") for product in products])
 
 
-def scrape_products(client, product_categories, category_ids, path, resume=True, batch_size=BATCH_SIZE):
+def scrape_products(client, product_categories, category_ids, path, resume=True, batch_size=config.BATCH_SIZE):
     """Pobiera karty produktów, których jeszcze nie ma w path, i dopisuje je do tego pliku.
 
     Zapis idzie co batch_size pobranych kart oraz na końcu, także po Ctrl+C,

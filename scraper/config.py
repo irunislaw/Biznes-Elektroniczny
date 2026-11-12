@@ -7,6 +7,8 @@ SHOP_URL = "https://gitara-sklep.pl"
 USER_AGENT = "gitarasiema-scraper (https://github.com/irunislaw/Biznes-Elektroniczny; s203878@student.pg.edu.pl)"
 REQUESTS_PER_SECOND = 2
 MAX_ATTEMPTS = 8
+# Co ile pobranych kart produktów zapisywać results.json
+BATCH_SIZE = 50
 
 FIXTURES_PATH = DIRECTORY / "tests/fixtures"
 SAVE_URLS_PATH = DIRECTORY.parent / "scraper-results/results_urls.json"

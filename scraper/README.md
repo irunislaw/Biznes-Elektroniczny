@@ -18,10 +18,12 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 
 ## Konfiguracja (`config.py`)
 - `SHOP_URL` - adres sklepu, z którego pobierany jest `robots.txt`,
-- `CATEGORY_URLS` - adresy scrapowanych kategorii głównych,
+- `CATEGORY_URLS` - adresy scrapowanych kategorii głównych (po zmianie uruchom `python main.py --od-nowa`,
+  patrz „Przerwanie i wznawianie”),
 - `USER_AGENT` - nazwa projektu i kontakt,
 - `REQUESTS_PER_SECOND` - limit tempa (domyślnie 2),
 - `MAX_ATTEMPTS` - liczba prób pobrania strony,
+- `BATCH_SIZE` - co ile pobranych kart produktów zapisywać `results.json` (domyślnie 50),
 - `SAVE_URLS_PATH`, `SAVE_PRODUCTS_PATH`, `SAVE_CATEGORY_TREE_PATH` - pliki wynikowe,
 - `PAGES_CACHE_PATH` - katalog na pobrane karty produktów (`scraper-results/cache/`, w `.gitignore`),
 - `LOGGING_PATH` - katalog na logi,
@@ -43,7 +45,7 @@ Czas zależy od liczby produktów i ponowień.
 Scraper można przerwać (Ctrl+C) i uruchomić ponownie. Nie pobiera drugi raz ani produktów
 zapisanych w `results.json`, ani żadnej karty produktu, która jest już na dysku.
 
-- `results.json` jest zapisywany co 50 pobranych kart produktów (`BATCH_SIZE` w `main.py`)
+- `results.json` jest zapisywany co 50 pobranych kart produktów (`BATCH_SIZE` w `config.py`)
   i jeszcze raz przy przerwaniu. Zapis idzie przez plik tymczasowy, więc przerwanie
   nie zostawia uciętego JSON-a. Format pliku jest taki sam jak przy zapisie na końcu przebiegu.
 - Każda pobrana karta produktu (HTML) trafia do `scraper-results/cache/<id produktu>.html`,
@@ -72,6 +74,8 @@ zapisanych w `results.json`, ani żadnej karty produktu, która jest już na dys
   `python main.py --od-nowa`: ignoruje `results.json` i `category-tree.json`, a na starcie
   czyści `cache/`. Przerwany przebieg `--od-nowa` wznawia się zwykłym `python main.py`
   i korzysta już tylko z kart pobranych od nowa.
+- Po zmianie `CATEGORY_URLS` w `config.py` uruchom `python main.py --od-nowa`. Zwykłe
+  uruchomienie wczyta stare drzewo z `category-tree.json`, więc nowych kategorii nie pobierze.
 - Drzewo kategorii zapisuje się dopiero w całości, na początku przebiegu od zera
   (ok. 1,5 min, 174 zapytania w ostatnim przebiegu). Przerwanie w tym czasie nie zmienia
   plików, więc wystarczy uruchomić to samo polecenie jeszcze raz.
@@ -184,7 +188,7 @@ w każdej kategorii i podkategorii:
 4. **`collect_products`** przechodzi przez kolejne strony listy produktów (`?page=1`, `?page=2`, …), dopóki istnieje link „następna strona”.
 5. **`collect_product_categories`** tworzy słownik produkt → kategorie. Kluczem jest adres, więc produkt z kilku kategorii występuje raz.
 6. **`collect_category_ids`** zbiera id wszystkich kategorii z drzewa.
-7. **`fetch_pages`** pobiera karty produktów (generator – strony nie są trzymane wszystkie w pamięci) przez **`CachedClient`**: karta, która jest już w `scraper-results/cache/`, jest czytana z dysku, a nowa pobierana ze sklepu i zapisywana tam przez plik tymczasowy.
+7. **`fetch_pages`** pobiera karty produktów (generator – strony nie są trzymane wszystkie w pamięci) przez **`CachedClient`** (`cached_client.py`): karta, która jest już w `scraper-results/cache/`, jest czytana z dysku, a nowa pobierana ze sklepu i zapisywana tam przez plik tymczasowy.
 8. **`parse_product`** wyciąga dane z atrybutu `data-product` (JSON osadzony w HTML) i breadcrumbu.
 9. **`parse_products`** pomija produkty z kategorią główną spoza drzewa, uzupełnia `other_category_ids` i waliduje rekord modelem `Product`; błędny rekord trafia do logu, nie do wyników.
 10. **`scrape_products`** pomija adresy, które już są w `results.json`, pozostałe pobiera (`fetch_pages`) i parsuje (`parse_products`), a wynik zapisuje co 50 kart i przy przerwaniu.
