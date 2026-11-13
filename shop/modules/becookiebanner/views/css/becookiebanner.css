@@ -1,0 +1,56 @@
+.be-cookie-banner {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  /* Pod oknami modalnymi Bootstrapa. */
+  z-index: 1030;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #1f2328;
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.be-cookie-banner__text {
+  max-width: 60rem;
+  margin: 0;
+  color: #fff;
+  font-size: inherit;
+}
+
+.be-cookie-banner__link,
+.be-cookie-banner__link:visited,
+.be-cookie-banner__link:hover,
+.be-cookie-banner__link:focus {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.be-cookie-banner__button {
+  min-height: 44px;
+  padding: 0.5rem 1.5rem;
+  border: 2px solid #fff;
+  border-radius: 4px;
+  background: #fff;
+  color: #1f2328;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.be-cookie-banner__button:hover {
+  background: #e8e8e8;
+}
+
+.be-cookie-banner__link:focus-visible,
+.be-cookie-banner__button:focus-visible {
+  outline: 3px solid #ffbf47;
+  outline-offset: 2px;
+}

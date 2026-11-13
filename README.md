@@ -43,7 +43,7 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
 3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
-5. uruchamia skrypty z [`deploy/config/`](deploy/config/), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+5. kopiuje moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację tego modułu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
