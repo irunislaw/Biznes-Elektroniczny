@@ -51,6 +51,8 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 
 **Archiwum ma mniej niż 1 GB**, choć pełne `img/p` ma ok. 1,2 GB. `make zrzut` pomija w archiwum największe typy miniatur (zwykle `large_default`), aż archiwum zmieści się w limicie, a `make init` tworzy je z oryginałów. Oryginały są w archiwum zawsze.
 
+**Strony informacyjne, stopkę i opis na stronie głównej** ustawia [`deploy/config/cms.php`](deploy/config/cms.php): strony O sklepie, Regulamin, Polityka prywatności, Dostawa i Formy płatności (przy pierwszym uruchomieniu przerabia strony demo instalatora, a stronę `legal-notice` wyłącza), linki w stopce, nazwę i fikcyjny adres sklepu oraz opis na stronie głównej. Treści są w plikach [`deploy/config/cms/`](deploy/config/cms/), np. `regulamin.html` (UTF-8 bez BOM). Po zmianie pliku wystarczy `make init`.
+
 ## Prywatne repozytorium
 Plik z Releases prywatnego repozytorium nie pobierze się bez logowania. Wtedy w `.env` trzeba wpisać token:
 1. GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token.

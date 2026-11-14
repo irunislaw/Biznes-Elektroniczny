@@ -108,7 +108,7 @@ krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
 sklep rm -rf /var/www/html/modules/becookiebanner
 $COMPOSE cp shop/modules/becookiebanner prestashop:/var/www/html/modules/becookiebanner
 sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
-for skrypt in locale taxes payments carriers mail cookies; do
+for skrypt in locale taxes payments carriers mail cookies cms; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
 sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
