@@ -104,7 +104,7 @@ krok "4/5 Domena, SSL i administrator z .env"
 sklep php /opt/dane/dopasuj.php
 
 krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
-for skrypt in locale taxes payments carriers mail; do
+for skrypt in locale taxes payments carriers mail cms; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
 sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
