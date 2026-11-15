@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
-import { proceedToDelivery } from '../pages/checkout';
+import { chooseRandomCarrier, proceedToDelivery } from '../pages/checkout';
 import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
@@ -45,16 +45,10 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
 
   await test.step('5. Złożenie zamówienia na zawartość koszyka.', () => proceedToDelivery(page));
 
+  await test.step('7. Wybór sposobu dostawy.', () => chooseRandomCarrier(page));
+
   /*
   await test.step('Baza do testów 5-8', async () => {
-    //krok 7 (krok 7 jest przed 6, bo jak jest ułożone na prestashop)
-    await page.getByRole('radio', { name: 'Kurier ekspres Dostawa w 24' }).check();
-    await page.locator('.col-xs-12.carriere-name-container').first().click();
-    await page.getByRole('radio', { name: 'Kurier Dostawa w 2-3 dni' }).check();
-    await page.locator('div:nth-child(4) > .col-xs-9 > div > .col-sm-5 > .row > .col-xs-12').click();
-    await page.getByRole('radio', { name: 'Kurier ekspres Dostawa w 24' }).check();
-    await page.getByRole('button', { name: 'Dalej' }).click();
-
     //krok 6
     await page.getByRole('radio', { name: 'Zapłać gotówką przy odbiorze' }).check();
     await page.getByRole('checkbox', { name: 'Zgadzam się z warunkami ś' }).check();
