@@ -62,15 +62,26 @@ async function addCategoryProducts(page: Page, categoryUrl: string, cart: Map<st
 }
 
 export async function searchAndAddNewProduct(page: Page, cart: ReadonlyMap<string, number>) {
-  const searchTerm = 'Hummingbird';
-  const searchBar = page.getByRole('textbox', { name: 'Szukaj' });
-  await searchBar.fill(searchTerm);
-  await Promise.all([
-    page.waitForURL(/controller=search/, { waitUntil: 'domcontentloaded' }),
-    searchBar.press('Enter'),
-  ]);
+  const searchTerms = [
+    'Hummingbird',
+    'Kabel',
+    'pokrowiec',
+    'statyw',
+    'Band',
+    'instrument',
+  ].filter(Boolean);
+  const searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
 
-  const results = await readCatalogProducts(page);
+  const results = await test.step(`Wyszukaj „${searchTerm}”`, async () => {
+    const searchBar = page.getByRole('textbox', { name: 'Szukaj' });
+    await searchBar.fill(searchTerm);
+    await Promise.all([
+      page.waitForURL(/controller=search/, { waitUntil: 'domcontentloaded' }),
+      searchBar.press('Enter'),
+    ]);
+    return readCatalogProducts(page);
+  });
+
   await expect(results.length).toBeGreaterThan(1);
   while (results.length > 0) {
     const index = Math.floor(Math.random() * results.length);
