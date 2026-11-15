@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
-import { chooseRandomCarrier, proceedToDelivery } from '../pages/checkout';
+import { chooseRandomCarrier, confirmOrder, proceedToDelivery, selectCashOnDelivery } from '../pages/checkout';
 import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
@@ -47,14 +47,7 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
 
   await test.step('7. Wybór sposobu dostawy.', () => chooseRandomCarrier(page));
 
-  /*
-  await test.step('Baza do testów 5-8', async () => {
-    //krok 6
-    await page.getByRole('radio', { name: 'Zapłać gotówką przy odbiorze' }).check();
-    await page.getByRole('checkbox', { name: 'Zgadzam się z warunkami ś' }).check();
+  await test.step('6. Wybór płatności przy odbiorze.', () => selectCashOnDelivery(page));
 
-    //krok 8
-    await page.getByRole('button', { name: 'Złóż zamówienie' }).click();
-  });
-  */
+  await test.step('8. Zatwierdzenie zamówienia.', () => confirmOrder(page));
 });

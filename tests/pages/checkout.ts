@@ -5,9 +5,17 @@ export async function proceedToDelivery(page: Page) {
   const zipCode = '00-001'
   const city = 'Gdańsk'
 
-  await page.getByRole('link', { name: 'Przejdź do realizacji zamówienia' }).click();
+  const checkoutLink = page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true });
+  await expectNoStockErrors(page);
+  expect(
+    await checkoutLink.isVisible() && await checkoutLink.isEnabled(),
+    'Przejście z koszyka do realizacji zamówienia jest niedostępne',
+  ).toBe(true);
+  await checkoutLink.click();
+  await expectNoStockErrors(page);
 
-  const addressForm = page.locator('#checkout-addresses-step form');
+  const addressForm = page.locator('#checkout-addresses-step .js-address-form > form');
+  await expect(addressForm, 'Po przejściu z koszyka powinien pojawić się formularz adresu').toBeVisible();
   await addressForm.getByRole('combobox', { name: 'Kraj' }).selectOption({ label: 'Polska' });
   await expect(addressForm.getByRole('combobox', { name: 'Stan' })).toBeHidden();
   await addressForm.getByRole('textbox', { name: 'Adres', exact: true }).fill(address);
@@ -16,8 +24,15 @@ export async function proceedToDelivery(page: Page) {
   await addressForm.getByRole('button', { name: 'Dalej', exact: true }).click();
 
   const deliveryForm = page.locator('#checkout-delivery-step form');
-  await expect(addressForm).toBeHidden();
   await expect(deliveryForm).toBeVisible();
+  await expect(addressForm).toBeHidden();
+}
+
+async function expectNoStockErrors(page: Page) {
+  const stockErrors = await page.getByRole('alert')
+    .filter({ hasText: 'Proszę dostosować ilość w koszyku' })
+    .allTextContents();
+  expect(stockErrors, 'Sklep zgłosił niewystarczający stan magazynowy').toEqual([]);
 }
 
 export async function chooseRandomCarrier(page: Page) {
@@ -38,6 +53,35 @@ export async function chooseRandomCarrier(page: Page) {
 
     await deliveryForm.getByRole('button', { name: 'Dalej', exact: true }).click();
     await expect(deliveryForm).toBeHidden();
-    await expect(page.locator('#cart-subtotal-shipping .value')).toHaveText(shippingCost);
+    await expect(page.locator('#cart-subtotal-shipping > span.value')).toHaveText(shippingCost);
   });
+}
+
+export async function selectCashOnDelivery(page: Page) {
+  const paymentStep = page.locator('#checkout-payment-step');
+  const cashOnDelivery = paymentStep.getByRole('radio', { name: 'Zapłać gotówką przy odbiorze' });
+  await cashOnDelivery.check();
+  await expect(cashOnDelivery).toBeChecked();
+
+  const terms = paymentStep.getByRole('checkbox', { name: /Zgadzam się z warunkami/ });
+  await terms.check();
+  await expect(terms).toBeChecked();
+}
+
+export async function confirmOrder(page: Page) {
+  const checkoutTotal = page.locator('#js-checkout-summary .cart-total .value');
+  await expect(checkoutTotal).toHaveText(/\d/);
+  const expectedTotal = await checkoutTotal.innerText();
+
+  await page.getByRole('button', { name: 'Złóż zamówienie', exact: true }).click();
+
+  const confirmation = page.getByRole('heading', { name: /Twoje zamówienie zostało potwierdzone/i });
+  await expect(confirmation).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#order-reference-value')).toHaveText(/^Numer zamówienia:\s*[A-Z]{9}$/);
+  await expect(page.locator('#order-details').getByText('Metoda płatności: Płatność przy odbiorze', {
+    exact: true,
+  })).toBeVisible();
+
+  const confirmedTotal = page.locator('#order-items tr.total-value td:last-child');
+  await expect(confirmedTotal, 'Łączna kwota zamówienia').toHaveText(expectedTotal);
 }
