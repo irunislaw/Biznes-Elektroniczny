@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
-import { prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
+import { proceedToDelivery } from '../pages/checkout';
+import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
 test('koszyk i rejestracja klienta', async ({ page }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(90_000);
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await test.step('0. Zaakceptowanie ciasteczek', () => acceptCookies(page));
 
   const cart = await test.step('1. Dodanie do koszyka 10 produktów', () => prepareCartWithTenProducts(page));
 
@@ -37,4 +42,25 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
     await openCart(page);
     await expectCartContents(page, cart);
   });
+
+  await test.step('5. Złożenie zamówienia na zawartość koszyka.', () => proceedToDelivery(page));
+
+  /*
+  await test.step('Baza do testów 5-8', async () => {
+    //krok 7 (krok 7 jest przed 6, bo jak jest ułożone na prestashop)
+    await page.getByRole('radio', { name: 'Kurier ekspres Dostawa w 24' }).check();
+    await page.locator('.col-xs-12.carriere-name-container').first().click();
+    await page.getByRole('radio', { name: 'Kurier Dostawa w 2-3 dni' }).check();
+    await page.locator('div:nth-child(4) > .col-xs-9 > div > .col-sm-5 > .row > .col-xs-12').click();
+    await page.getByRole('radio', { name: 'Kurier ekspres Dostawa w 24' }).check();
+    await page.getByRole('button', { name: 'Dalej' }).click();
+
+    //krok 6
+    await page.getByRole('radio', { name: 'Zapłać gotówką przy odbiorze' }).check();
+    await page.getByRole('checkbox', { name: 'Zgadzam się z warunkami ś' }).check();
+
+    //krok 8
+    await page.getByRole('button', { name: 'Złóż zamówienie' }).click();
+  });
+  */
 });

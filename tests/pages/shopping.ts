@@ -1,14 +1,23 @@
 import { test, expect, type Page } from '@playwright/test';
 import { addProductToCart, expectCartContents, openCart } from './cart';
 
+export async function acceptCookies(page: Page) {
+  const cookieBanner = page.getByRole('region', {
+    name: 'Informacja o plikach cookies',
+  });
+
+  await expect(cookieBanner).toBeVisible();
+  await cookieBanner.getByRole('button', { name: 'Akceptuję', exact: true }).click();
+  await expect(cookieBanner).toBeHidden();
+}
+
 export async function prepareCartWithTenProducts(page: Page) {
   const targetCount = 10;
   const maxPerCategory = 5;
   const addedProducts = new Map<string, number>();
 
   const categories = await test.step('Pobierz kategorie z katalogu', async () => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('link', { name: /^Wszystkie produkty\s*?$/ }).click();
+    await page.getByRole('link', { name: /^Wszystkie nowe produkty\s*?$/ }).click();
 
     const categoryLinks = page.locator('#left-column .category-sub-menu li > a');
     await expect(categoryLinks.first()).toBeVisible();
@@ -62,6 +71,7 @@ export async function searchAndAddNewProduct(page: Page, cart: ReadonlyMap<strin
   ]);
 
   const results = await readCatalogProducts(page);
+  await expect(results.length).toBeGreaterThan(1);
   while (results.length > 0) {
     const index = Math.floor(Math.random() * results.length);
     const [product] = results.splice(index, 1);
