@@ -7,7 +7,7 @@ ifneq ($(OS),Windows_NT)
 DOCKER_USER = --user $(shell id -u):$(shell id -g)
 endif
 
-.PHONY: up down init zrzut logs reset certs sprawdz
+.PHONY: up down init zrzut logs reset certs sprawdz duplikaty
 
 certs:
 		docker run --rm $(DOCKER_USER) -v "$(CURDIR):/work" -w /work --entrypoint sh $(OPENSSL_IMAGE) deploy/scripts/gen-cert.sh
@@ -27,3 +27,5 @@ test:
 		$(COMPOSE) exec playwright npx playwright test
 sprawdz:
 		$(COMPOSE) exec -T db sh -c 'MYSQL_PWD="$$MARIADB_PASSWORD" mariadb -u"$$MARIADB_USER" "$$MARIADB_DATABASE" -t' < deploy/sprawdz/metryki.sql
+duplikaty:
+		$(COMPOSE) exec -T db sh -c 'MYSQL_PWD="$$MARIADB_PASSWORD" mariadb -u"$$MARIADB_USER" "$$MARIADB_DATABASE" -t' < deploy/import/duplikaty.sql
