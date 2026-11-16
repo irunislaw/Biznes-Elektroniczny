@@ -1,0 +1,5 @@
+/*
+ * Własne style motywu gitara. Ładowane po theme.css z Classic (priorytet 1000),
+ * więc reguły stąd nadpisują Classic bez !important przy tej samej specyficzności.
+ * Zakres zmian: docs/wyglad/roznice.md.
+ */
