@@ -1,5 +1,5 @@
 # Import kategorii i produktów
-Skrypt `import.py` przenosi do sklepu dane zebrane przez scraper (`scraper-results/category-tree.json`, `scraper-results/results.json` oraz pobrane zdjęcia). Korzysta z Web Service API PrestaShopa (`https://localhost:8443/api`). Stałe (ziarno losowania, liczba wątków, mapowanie stawek VAT na grupy reguł) są w `config.py`.
+Skrypt `import.py` przenosi do sklepu dane zebrane przez scraper (`scraper-results/category-tree.json`, `scraper-results/results.json` oraz pobrane zdjęcia), w tym promocje. Korzysta z Web Service API PrestaShopa (`https://localhost:8443/api`). Stałe (ziarno losowania, liczba wątków, mapowanie stawek VAT na grupy reguł) są w `config.py`.
 
 ## Uruchomienie
 Wymagania:
@@ -24,6 +24,9 @@ Klucz jest czytany ze zmiennej środowiskowej `PS_WEBSERVICE_KEY` (plik `.env`) 
 | `images` | GET, POST |
 | `stock_availables` | GET, PATCH |
 | `configurations` | GET, PATCH |
+| `specific_prices` | GET, POST, PATCH, DELETE |
+
+Uprawnienia ustawia `deploy/import/init_webservice.php` przy `make init`. Plik jest montowany do kontenera jako pojedynczy plik, więc po jego zmianie trzeba zrestartować kontener (`docker compose --env-file .env -f deploy/compose.yaml restart prestashop`) i ponownie uruchomić `make init`. Inaczej sklep użyje starej wersji uprawnień i API zwróci `401 Unauthorized`.
 
 ## Co robi skrypt
 - **Kategorie**: odtwarza drzewo kategorii i podkategorii ze sklepu źródłowego pod kategorią „Strona główna”.
@@ -33,6 +36,7 @@ Klucz jest czytany ze zmiennej środowiskowej `PS_WEBSERVICE_KEY` (plik `.env`) 
 - **Zdjęcia**: wysyłane z lokalnych plików scrapera, w kilku wątkach równolegle (`MAX_WORKERS`).
 - **Stany magazynowe**: losowane z zakresu 0–10 ze stałym ziarnem (`RANDOM_SEED`), więc każdy przebieg daje te same stany. Obecnie stan 0 ma ok. 8% produktów.
 - **Menu górne** (`ps_mainmenu`): pokazuje zaimportowane kategorie główne zamiast kategorii demo.
+- **Promocje**: produkty, które w sklepie źródłowym mają cenę promocyjną (`sale_price_gross`), dostają obniżkę kwotową (`specific_prices`): obniżka = cena brutto − cena promocyjna brutto. Sklep pokazuje starą cenę, rabat i nową cenę. Promocję ma 302 z 1161 produktów. Lista zapasowa w `config.py` (dla sytuacji, gdy promocji ze źródła byłoby mniej niż 20) nie jest potrzebna, bo sklep źródłowy ma ich 302.
 
 Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
 
@@ -41,6 +45,7 @@ Import można bezpiecznie uruchomić kilka razy:
 - **Kategorie** są rozpoznawane po kategorii nadrzędnej i `link_rewrite` (pochodzi z adresu kategorii w sklepie źródłowym). Używamy `link_rewrite` zamiast nazwy, bo jest unikalny w obrębie rodzica i nie zmienia się, gdy w sklepie źródłowym zmieni się wyświetlana nazwa. Istniejącej kategorii aktualizowana jest nazwa.
 - **Produkty** są rozpoznawane po `reference` (identyfikator ze sklepu źródłowego). Istniejącemu produktowi aktualizowane są cena, opis i waga. Stan magazynowy jest ustawiany przy każdym przebiegu.
 - **Zdjęcia** są wysyłane tylko produktom, które jeszcze nie mają żadnego zdjęcia, więc się nie dublują.
+- **Promocje** są rozpoznawane po produkcie (`id_product`). Istniejącej promocji aktualizowana jest wysokość obniżki, a promocja produktu, który w sklepie źródłowym nie ma już ceny promocyjnej, jest usuwana.
 
 ## Raport i błędy
 Każdy przebieg zapisuje log `deploy/import/import_<data>.log`. Rekord odrzucony przez API (np. błąd walidacji) jest logowany na poziomie `ERROR` razem z identyfikatorem ze sklepu źródłowego, a import przechodzi do następnego rekordu. Produkt, którego nie udało się zaktualizować, zostaje w sklepie.
@@ -50,15 +55,16 @@ Na końcu logu jest raport:
 ```
 Kategorie: utworzono 0, zaktualizowano 61, odrzucono 0
 Produkty: utworzono 0, zaktualizowano 1161, odrzucono 0
+Promocje: utworzono 0, zaktualizowano 302, usunięto 0, odrzucono 0
 Czas importu: 69.30s
 ```
 
 Czas importu 1161 produktów: do pustego sklepu ok. 3,5 min, ponownie ok. 1 min (limit: 30 min).
 
 ## Sprawdzenie, że nie ma duplikatów
-1. Uruchom import drugi raz. Raport powinien pokazać `utworzono 0` dla kategorii i produktów.
+1. Uruchom import drugi raz. Raport powinien pokazać `utworzono 0` dla kategorii, produktów i promocji.
 2. Z katalogu głównego repozytorium uruchom zapytania:
    ```bash
     make duplikaty
    ```
-Dwa pierwsze zapytania nie powinny zwrócić żadnego wiersza. Liczby z trzeciego (produkty, kategorie, zdjęcia) powinny być takie same przed i po ponownym imporcie.
+Trzy pierwsze zapytania (duplikaty produktów, kategorii i promocji) nie powinny zwrócić żadnego wiersza. Liczby z czwartego (produkty, kategorie, zdjęcia, promocje) powinny być takie same przed i po ponownym imporcie.

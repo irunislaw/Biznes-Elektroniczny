@@ -68,7 +68,8 @@ try {
         'products' => ['GET' => 1, 'POST' => 1, 'DELETE' => 1, 'PATCH' => 1],
         'images' => ['GET' => 1, 'POST' => 1],
         'stock_availables' => ['GET' => 1, 'PATCH' => 1],
-        'configurations' => ['GET' => 1, 'PATCH' => 1]
+        'configurations' => ['GET' => 1, 'PATCH' => 1],
+        'specific_prices' => ['GET' => 1, 'POST' => 1, 'PATCH' => 1, 'DELETE' => 1],
     ];
 
     if (!$db->delete(

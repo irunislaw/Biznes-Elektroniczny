@@ -403,6 +403,68 @@ def set_stocks(products, product_id_map):
     logger.info("Procentowo: %.2f%%", ((empty_stocks / len(products)) * 100))
 
 
+def create_specific_price_xml(ps_product_id, reduction, sp_id=None):
+    id_xml = f"<id>{sp_id}</id>" if sp_id else ""
+    return f"""
+        <prestashop>
+            <specific_price>
+                {id_xml}
+                <id_product>{ps_product_id}</id_product>
+                <id_product_attribute>0</id_product_attribute>
+                <id_shop>0</id_shop>
+                <id_cart>0</id_cart>
+                <id_currency>0</id_currency>
+                <id_country>0</id_country>
+                <id_group>0</id_group>
+                <id_customer>0</id_customer>
+                <from_quantity>1</from_quantity>
+                <price>-1</price>
+                <reduction>{reduction}</reduction>
+                <reduction_tax>1</reduction_tax>
+                <reduction_type>amount</reduction_type>
+                <from>0000-00-00 00:00:00</from>
+                <to>0000-00-00 00:00:00</to>
+            </specific_price>
+        </prestashop>
+    """
+
+
+def set_promotions(products, product_id_map):
+    counter = {"added": 0, "updated": 0, "deleted": 0, "rejected": 0}
+
+    planned = {}
+    for p in products:
+        ps_id = product_id_map.get(p["id"])
+        if ps_id is not None and p.get("sale_price_gross") is not None:
+            planned[ps_id] = Decimal(p["price_gross"]) - Decimal(p["sale_price_gross"])
+
+    existing = api_get("specific_prices", {"display": "[id,id_product]", "filter[id_cart]": "[0]"})
+    existing = {int(sp["id_product"]): int(sp["id"]) for sp in (existing or {}).get("specific_prices", [])}
+
+    for ps_id, reduction in planned.items():
+        try:
+            if ps_id in existing:
+                sp_id = existing[ps_id]
+                api_patch(f"specific_prices/{sp_id}", create_specific_price_xml(ps_id, reduction, sp_id))
+                counter["updated"] += 1
+            else:
+                api_post("specific_prices", create_specific_price_xml(ps_id, reduction))
+                counter["added"] += 1
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie ustawiono promocji produktu %d: %s", ps_id, e)
+            counter["rejected"] += 1
+
+    for ps_id, sp_id in existing.items():
+        if ps_id not in planned:
+            try:
+                api_delete(f"specific_prices/{sp_id}")
+                counter["deleted"] += 1
+            except requests.RequestException as e:
+                logger.error("Nie usunięto promocji %d: %s", sp_id, e)
+
+    return counter
+
+
 def add_image(product_id, image_path):
     with open(config.SCRAPER_RESULTS_PATH / image_path, "rb") as image:
         response = requests.post(
@@ -524,6 +586,7 @@ def main():
         )
 
         clear_sample_data(category_id_map, product_id_map)
+        promo_counter = set_promotions(products, product_id_map)
         add_images(products, product_id_map)
         set_stocks(products, product_id_map)
 
@@ -535,6 +598,13 @@ def main():
         category_counter["rejected"],
     )
     logger.info("Produkty: utworzono %d, zaktualizowano %d, odrzucono %d", added, updated, rejected)
+    logger.info(
+        "Promocje: utworzono %d, zaktualizowano %d, usunięto %d, odrzucono %d",
+        promo_counter["added"],
+        promo_counter["updated"],
+        promo_counter["deleted"],
+        promo_counter["rejected"],
+    )
     logger.info("Czas importu: %.2fs", end_time - start_time)
 
 
