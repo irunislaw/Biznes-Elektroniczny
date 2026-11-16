@@ -1,0 +1,9 @@
+/*
+ * Własne style motywu gitara. Ładowane po theme.css z Classic (priorytet 1000),
+ * więc reguły stąd nadpisują Classic bez !important przy tej samej specyficzności.
+ */
+
+/* Znacznik, że motyw jest aktywny: cienki pasek nad nagłówkiem. Do usunięcia przy pierwszej prawdziwej zmianie. */
+#header {
+  border-top: 4px solid #222;
+}

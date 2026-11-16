@@ -5,7 +5,8 @@
 #  3. pobiera archiwum zdjęć z Releases (ZDJECIA_URL), a gdy jest niedostępne, zdjęcia z adresów
 #     w scraper-results/results.json; potem tworzy brakujące miniatury,
 #  4. ustawia domenę, SSL i konto administratora z .env,
-#  5. kopiuje moduł z shop/modules/, uruchamia skrypty konfiguracji z deploy/config/ i czyści cache.
+#  5. kopiuje moduł z shop/modules/ i motyw z shop/themes/, uruchamia skrypty konfiguracji
+#     z deploy/config/ (w tym włączenie motywu) i czyści cache.
 # Drugie uruchomienie niczego nie psuje: zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie
 # jest inna wersja danych, a skrypty konfiguracji zmieniają tylko to, co się różni.
 # make init DANE=0 pomija kroki 2 i 3 (sklep zostaje z danymi demo), np. przed nowym importem.
@@ -108,7 +109,12 @@ krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
 sklep rm -rf /var/www/html/modules/becookiebanner
 $COMPOSE cp shop/modules/becookiebanner prestashop:/var/www/html/modules/becookiebanner
 sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
-for skrypt in locale taxes payments carriers mail cookies cms; do
+# To samo dla motywu potomnego. Włącza go theme.php, pierwszy w pętli, bo przy przełączaniu motywu
+# PrestaShop zapisuje od nowa hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
+sklep rm -rf /var/www/html/themes/gitara
+$COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
+sklep chown -R www-data:www-data /var/www/html/themes/gitara
+for skrypt in theme locale taxes payments carriers mail cookies cms; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
 sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
