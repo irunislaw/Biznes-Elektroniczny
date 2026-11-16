@@ -193,10 +193,12 @@ def create_product_xml(product, category_id, categories):
 
 
 def create_product_update_xml(ps_product_id, product):
+    tax_rules_group = config.TAX_RULES_GROUP_FOR_VAT_RATE[int(product["vat_rate_percent"])]
     return f"""
         <prestashop>
             <product>
                 <id>{ps_product_id}</id>
+                <id_tax_rules_group><![CDATA[{tax_rules_group}]]></id_tax_rules_group>
                 <price><![CDATA[{net_price(product)}]]></price>
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
@@ -317,6 +319,10 @@ def add_categories(root, categories_in_database, category_parent_map, category_i
     return counter
 
 
+def count_descendants(category):
+    return sum(1 + count_descendants(child) for child in category["children"])
+
+
 def add_category(
     category, categories_in_database, category_parent_map, category_id_map, counter, parent_id=config.HOME_CATEGORY_ID
 ):
@@ -341,6 +347,10 @@ def add_category(
         except (requests.RequestException, KeyError, ValueError) as e:
             logger.error("Nie dodano kategorii: %s. Powód: %s", category["name"], e)
             counter["rejected"] += 1
+            skipped = count_descendants(category)
+            if skipped:
+                logger.error("Pominięto %d podkategorii kategorii %s", skipped, category["name"])
+                counter["rejected"] += skipped
             return
 
     category_id_map[get_category_id(category["url"])] = category_id
@@ -438,7 +448,7 @@ def add_images(products, product_id_map):
         for done, future in enumerate(as_completed(futures), 1):
             try:
                 future.result()
-            except requests.RequestException as e:
+            except (requests.RequestException, OSError) as e:
                 logger.error("Nie udało się dodać zdjęć dla produktu: %d %s", futures[future], e)
 
             if done % 100 == 0 or done == len(futures):
