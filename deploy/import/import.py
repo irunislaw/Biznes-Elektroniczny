@@ -25,6 +25,7 @@ def api_get(resource, parameters=None):
         auth=config.LOGIN,
         params=parameters | {"output_format": "JSON"},
         verify=False,
+        timeout=config.TIMEOUT,
     )
     response.raise_for_status()
     return response.json()
@@ -37,13 +38,14 @@ def api_post(resource, xml):
         params={"output_format": "JSON"},
         data=xml.encode("utf-8"),
         verify=False,
+        timeout=config.TIMEOUT,
     )
     response.raise_for_status()
     return response.json()
 
 
 def api_delete(resource):
-    response = requests.delete(config.API_URL + "/" + resource, auth=config.LOGIN, verify=False)
+    response = requests.delete(config.API_URL + "/" + resource, auth=config.LOGIN, verify=False, timeout=config.TIMEOUT)
     response.raise_for_status()
 
 
@@ -54,6 +56,7 @@ def api_patch(resource, xml):
         auth=config.LOGIN,
         data=xml.encode("utf-8"),
         verify=False,
+        timeout=config.TIMEOUT,
     )
 
     response.raise_for_status()
@@ -152,8 +155,7 @@ def create_category_xml(category, parent_id=config.HOME_CATEGORY_ID):
 
 
 def create_product_xml(product, category_id, categories):
-    price_netto_unquantized = Decimal(product["price_gross"]) / (1 + (Decimal(product["vat_rate_percent"])) / 100)
-    price_netto_quantized = price_netto_unquantized.quantize(Decimal("0.000001"))
+    price_netto_quantized = net_price(product)
     tax_rules_group = config.TAX_RULES_GROUP_FOR_VAT_RATE[int(product["vat_rate_percent"])]
     categories_xml = "".join(f"<category><id>{c}</id></category>" for c in categories)
     xml = f"""
@@ -182,12 +184,29 @@ def create_product_xml(product, category_id, categories):
                     {categories_xml}
                     </categories>
                 </associations>
-                <weight><![CDATA[0]]></weight>
+                <weight><![CDATA[{product.get("weight") or 0}]]></weight>
         </product>
     </prestashop>
     """
 
     return xml
+
+
+def create_product_update_xml(ps_product_id, product):
+    tax_rules_group = config.TAX_RULES_GROUP_FOR_VAT_RATE[int(product["vat_rate_percent"])]
+    return f"""
+        <prestashop>
+            <product>
+                <id>{ps_product_id}</id>
+                <id_tax_rules_group><![CDATA[{tax_rules_group}]]></id_tax_rules_group>
+                <price><![CDATA[{net_price(product)}]]></price>
+                <description>
+                    <language id="1"><![CDATA[{product["description"]}]]></language>
+                </description>
+                <weight><![CDATA[{product.get("weight") or 0}]]></weight>
+            </product>
+        </prestashop>
+    """
 
 
 def get_product_link_rewrite(product_url):
@@ -211,11 +230,29 @@ def get_category_with_ancestors(category_id, category_parent_map):
     return categories
 
 
+def net_price(product):
+    gross = Decimal(product["price_gross"])
+    vat = Decimal(product["vat_rate_percent"])
+    return (gross / (1 + vat / 100)).quantize(Decimal("0.000001"))
+
+
+def update_product(ps_product_id, product):
+    xml = create_product_update_xml(ps_product_id, product)
+    api_patch(f"products/{ps_product_id}", xml)
+
+
 def add_products(products, products_in_database, category_id_map, category_parent_map):
     products_id_map = {}
+    added = updated = rejected = 0
     for i, product in enumerate(products, 1):
         if str(product["id"]) in products_in_database:
-            product_id = products_in_database[str(product["id"])]
+            try:
+                product_id = products_in_database[str(product["id"])]
+                update_product(product_id, product)
+                updated += 1
+            except (requests.RequestException, KeyError, ValueError, TypeError) as e:
+                logger.error("Nie zaktualizowano produktu %d: %s", product["id"], e)
+                rejected += 1
         else:
             original_category_ids = [product["id_category_default"]] + product["other_category_ids"]
             categories = set()
@@ -225,17 +262,25 @@ def add_products(products, products_in_database, category_id_map, category_paren
                     categories.update(get_category_with_ancestors(ps_category_id, category_parent_map))
                 else:
                     logger.warning(
-                        "Produkt %d pominięty: kategoria %d spoza drzewa", product["id"], original_category_id
+                        "Produkt %d: kategoria %d spoza drzewa, pomijam przypisanie",
+                        product["id"],
+                        original_category_id,
                     )
 
-            default_id = category_id_map[product["id_category_default"]]
-            product_id = add_product(product, default_id, categories)
+            try:
+                default_id = category_id_map[product["id_category_default"]]
+                product_id = add_product(product, default_id, categories)
+                added += 1
+            except (requests.RequestException, KeyError, ValueError, TypeError) as e:
+                logger.error("Nie dodano produktu: %d. Powód: %s", product["id"], e)
+                rejected += 1
+                continue
 
         products_id_map[product["id"]] = product_id
         if i % 100 == 0 or i == len(products):
             logger.info("Produkty: %d/%d", i, len(products))
 
-    return products_id_map
+    return products_id_map, added, updated, rejected
 
 
 def add_product(product, category_id, categories):
@@ -247,29 +292,73 @@ def add_product(product, category_id, categories):
     return int(product_id)
 
 
+def create_category_update_xml(ps_category_id, category):
+    return f"""
+        <prestashop>
+            <category>
+                <id>{ps_category_id}</id>
+                <name>
+                    <language id="1"><![CDATA[{category["name"]}]]></language>
+                </name>
+            </category>
+        </prestashop>
+    """
+
+
+def update_category(ps_category_id, category):
+    xml = create_category_update_xml(ps_category_id, category)
+    api_patch(f"categories/{ps_category_id}", xml)
+
+
 def add_categories(root, categories_in_database, category_parent_map, category_id_map):
+    counter = {"added": 0, "updated": 0, "rejected": 0}
     categories = root["children"]
     for category in categories:
-        add_category(category, categories_in_database, category_parent_map, category_id_map)
+        add_category(category, categories_in_database, category_parent_map, category_id_map, counter)
+
+    return counter
+
+
+def count_descendants(category):
+    return sum(1 + count_descendants(child) for child in category["children"])
 
 
 def add_category(
-    category, categories_in_database, category_parent_map, category_id_map, parent_id=config.HOME_CATEGORY_ID
+    category, categories_in_database, category_parent_map, category_id_map, counter, parent_id=config.HOME_CATEGORY_ID
 ):
     category_tuple = (parent_id, get_category_link_rewrite(category["url"]))
     subcategories = category["children"]
 
     if category_tuple in categories_in_database:
-        category_id = categories_in_database[category_tuple]
+        try:
+            category_id = categories_in_database[category_tuple]
+            update_category(category_id, category)
+            counter["updated"] += 1
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie zaktualizowano kategorii %s: %s", category["name"], e)
+            counter["rejected"] += 1
+
     else:
-        xml = create_category_xml(category, parent_id)
-        response = api_post("categories", xml)
-        category_id = int(response["category"]["id"])
+        try:
+            xml = create_category_xml(category, parent_id)
+            response = api_post("categories", xml)
+            category_id = int(response["category"]["id"])
+            counter["added"] += 1
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie dodano kategorii: %s. Powód: %s", category["name"], e)
+            counter["rejected"] += 1
+            skipped = count_descendants(category)
+            if skipped:
+                logger.error("Pominięto %d podkategorii kategorii %s", skipped, category["name"])
+                counter["rejected"] += skipped
+            return
 
     category_id_map[get_category_id(category["url"])] = category_id
     category_parent_map[category_id] = parent_id
     for subcategory in subcategories:
-        add_category(subcategory, categories_in_database, category_parent_map, category_id_map, parent_id=category_id)
+        add_category(
+            subcategory, categories_in_database, category_parent_map, category_id_map, counter, parent_id=category_id
+        )
 
 
 def create_stock_xml(stock_id, amount):
@@ -290,18 +379,25 @@ def set_stocks(products, product_id_map):
     stocks_in_database = {int(s["id_product"]): int(s["id"]) for s in stocks}
     empty_stocks = 0
     for i, product in enumerate(products, 1):
-        source_id = product["id"]
-        ps_id = product_id_map[source_id]
-        stock_id = stocks_in_database[ps_id]
-        rng = random.Random(config.RANDOM_SEED - source_id)
-        stock_amount = rng.randint(0, 10)
-        if stock_amount == 0:
-            empty_stocks += 1
-        xml = create_stock_xml(stock_id, stock_amount)
-        api_patch(f"stock_availables/{stock_id}", xml)
-
         if i % 100 == 0 or i == len(products):
             logger.info("Stany: %d/%d", i, len(products))
+
+        source_id = product["id"]
+        ps_id = product_id_map.get(source_id)
+
+        if ps_id is None:
+            continue
+
+        try:
+            stock_id = stocks_in_database[ps_id]
+            rng = random.Random(config.RANDOM_SEED - source_id)
+            stock_amount = rng.randint(0, 10)
+            if stock_amount == 0:
+                empty_stocks += 1
+            xml = create_stock_xml(stock_id, stock_amount)
+            api_patch(f"stock_availables/{stock_id}", xml)
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie ustawiono stanu produktu %d: %s", source_id, e)
 
     logger.info("Produktów o stanie 0: %d", empty_stocks)
     logger.info("Procentowo: %.2f%%", ((empty_stocks / len(products)) * 100))
@@ -339,7 +435,11 @@ def add_images(products, product_id_map):
     with ThreadPoolExecutor(max_workers=config.MAX_WORKERS) as executor:
         futures = {}
         for product in products:
-            ps_product_id = product_id_map[product["id"]]
+            ps_product_id = product_id_map.get(product["id"])
+
+            if ps_product_id is None:
+                continue
+
             if ps_product_id in products_with_images:
                 continue
 
@@ -348,8 +448,8 @@ def add_images(products, product_id_map):
         for done, future in enumerate(as_completed(futures), 1):
             try:
                 future.result()
-            except requests.RequestException as e:
-                logger.warning("Nie udało się dodać zdjęć dla produktu: %d %s", futures[future], e)
+            except (requests.RequestException, OSError) as e:
+                logger.error("Nie udało się dodać zdjęć dla produktu: %d %s", futures[future], e)
 
             if done % 100 == 0 or done == len(futures):
                 logger.info("Zdjęcia: %d/%d", done, len(futures))
@@ -412,20 +512,29 @@ def main():
         categories_display = get_categories({"display": "[id,id_parent,link_rewrite]"})
         categories_in_database = {(int(c["id_parent"]), c["link_rewrite"]): int(c["id"]) for c in categories_display}
 
-        add_categories(root, categories_in_database, category_parent_map, category_id_map)
+        category_counter = add_categories(root, categories_in_database, category_parent_map, category_id_map)
         setup_ps_main_menu(category_parent_map)
     with open(config.SCRAPER_RESULTS_PATH / "results.json", encoding="utf-8") as file:
         products = json.load(file)
         products_display = get_products({"display": "[id,reference]"})
         products_in_database = {p["reference"]: int(p["id"]) for p in products_display}
 
-        product_id_map = add_products(products, products_in_database, category_id_map, category_parent_map)
+        product_id_map, added, updated, rejected = add_products(
+            products, products_in_database, category_id_map, category_parent_map
+        )
 
         clear_sample_data(category_id_map, product_id_map)
         add_images(products, product_id_map)
         set_stocks(products, product_id_map)
 
     end_time = time.perf_counter()
+    logger.info(
+        "Kategorie: utworzono %d, zaktualizowano %d, odrzucono %d",
+        category_counter["added"],
+        category_counter["updated"],
+        category_counter["rejected"],
+    )
+    logger.info("Produkty: utworzono %d, zaktualizowano %d, odrzucono %d", added, updated, rejected)
     logger.info("Czas importu: %.2fs", end_time - start_time)
 
 
