@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
 import { chooseRandomCarrier, confirmOrder, proceedToDelivery, selectCashOnDelivery } from '../pages/checkout';
-import { checkOrderInHistory } from '../pages/order-history';
+import { checkOrderInHistory, downloadOrderInvoice } from '../pages/order-history';
 import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
@@ -57,10 +57,5 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
     checkOrderInHistory(page, customerName, orderNumber),
   );
 
-  /*
-  Baza do kroku 10:
-  const download1Promise = page.waitForEvent('download');
-  await page.getByRole('link').filter({ hasText: '' }).first().click();
-  const download1 = await download1Promise;
-  */
+  await test.step('10. Pobranie faktury VAT.', () => downloadOrderInvoice(page, orderNumber));
 });

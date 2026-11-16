@@ -45,7 +45,15 @@ export async function chooseRandomCarrier(page: Page) {
       has: page.getByText(carrierName, { exact: true }),
     });
     const carrier = deliveryOption.getByRole('radio');
-    await carrier.check();
+    // Jeśli zmienia się dostawa to czeka aż serwer ją zmieni
+    if (!(await carrier.isChecked())) {
+      await Promise.all([
+        page.waitForEvent('requestfinished', request =>
+          new URL(request.url()).searchParams.get('action') === 'selectDeliveryOption',
+        ),
+        carrier.check(),
+      ]);
+    }
     await expect(carrier).toBeChecked();
 
     const carrierPrice = (await deliveryOption.locator('.carrier-price').innerText()).trim();
