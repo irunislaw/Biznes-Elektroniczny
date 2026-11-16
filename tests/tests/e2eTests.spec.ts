@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
-import { prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
+import { chooseRandomCarrier, confirmOrder, proceedToDelivery, selectCashOnDelivery } from '../pages/checkout';
+import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
 test('koszyk i rejestracja klienta', async ({ page }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(90_000);
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+  await test.step('0. Zaakceptowanie ciasteczek', () => acceptCookies(page));
 
   const cart = await test.step('1. Dodanie do koszyka 10 produktów', () => prepareCartWithTenProducts(page));
 
@@ -37,4 +42,12 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
     await openCart(page);
     await expectCartContents(page, cart);
   });
+
+  await test.step('5. Złożenie zamówienia na zawartość koszyka.', () => proceedToDelivery(page));
+
+  await test.step('7. Wybór sposobu dostawy.', () => chooseRandomCarrier(page));
+
+  await test.step('6. Wybór płatności przy odbiorze.', () => selectCashOnDelivery(page));
+
+  await test.step('8. Zatwierdzenie zamówienia.', () => confirmOrder(page));
 });
