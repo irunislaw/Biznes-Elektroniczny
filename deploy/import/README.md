@@ -36,7 +36,7 @@ Uprawnienia ustawia `deploy/import/init_webservice.php` przy `make init`. Plik j
 - **Zdjęcia**: wysyłane z lokalnych plików scrapera, w kilku wątkach równolegle (`MAX_WORKERS`).
 - **Stany magazynowe**: losowane z zakresu 0–10 ze stałym ziarnem (`RANDOM_SEED`), więc każdy przebieg daje te same stany. Obecnie stan 0 ma ok. 8% produktów.
 - **Menu górne** (`ps_mainmenu`): pokazuje zaimportowane kategorie główne zamiast kategorii demo.
-- **Promocje**: produkty, które w sklepie źródłowym mają cenę promocyjną (`sale_price_gross`), dostają obniżkę kwotową (`specific_prices`): obniżka = cena brutto − cena promocyjna brutto. Sklep pokazuje starą cenę, rabat i nową cenę. Promocję ma 302 z 1161 produktów.
+- **Promocje**: produkty, które w sklepie źródłowym mają cenę promocyjną (`sale_price_gross`), dostają obniżkę kwotową (`specific_prices`): obniżka = cena brutto − cena promocyjna brutto. Sklep pokazuje starą cenę, rabat i nową cenę. Promocję ma 302 z 1161 produktów. Lista zapasowa w `config.py` (dla sytuacji, gdy promocji ze źródła byłoby mniej niż 20) nie jest potrzebna, bo sklep źródłowy ma ich 302.
 
 Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
 
