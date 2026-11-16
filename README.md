@@ -43,7 +43,7 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
 3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
-5. kopiuje moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację tego modułu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+5. kopiuje moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację tego modułu i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
@@ -86,6 +86,13 @@ Co zrzut pomija ([`baza.sh`](deploy/dane/baza.sh), lista `BEZ_DANYCH`):
 - e-mail, hasło i imię administratora (w zrzucie jest `admin@example.com` i puste hasło) oraz pozostałe e-maile sklepu i sekrety modułu newslettera. `make init` ustawia je od nowa.
 
 Na koniec skrypt sprawdza, czy w zrzucie nie ma żadnego klucza Webservice ani e-maila pracownika lub klienta ze sklepu. Jeśli jest, usuwa zrzut i kończy się błędem.
+
+# Wygląd sklepu
+Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`parent: classic` w `config/theme.yml`). Szablony, JS i CSS dziedziczy po Classic, a własne style są w [`assets/css/custom.css`](shop/themes/gitara/assets/css/custom.css), ładowanym po CSS Classic. `make init` kopiuje motyw do sklepu i włącza go skryptem [`deploy/config/theme.php`](deploy/config/theme.php), więc nie trzeba niczego klikać w panelu. Po zmianie CSS wystarczy `make init`. Plików motywu w kontenerze nie warto edytować, bo następne `make init` je nadpisze.
+
+`theme.yml` ma celowo tylko typy miniatur (identyczne jak w Classic) i układy stron. Włączenie motywu w PrestaShop zastępuje typy miniatur listą z motywu, a sekcja `hooks` przepięłaby moduły według swojej listy i odpięła np. `becookiebanner`.
+
+`make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
 
 # Scraper
 Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`scraper/`](scraper/) i działa niezależnie od kontenerów (wymaga Pythona).
