@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { expectCartContents, openCart, removeProductFromCart } from '../pages/cart';
 import { chooseRandomCarrier, confirmOrder, proceedToDelivery, selectCashOnDelivery } from '../pages/checkout';
+import { checkOrderInHistory } from '../pages/order-history';
 import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
@@ -37,10 +38,11 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
     await expect(total).toHaveText(/\d/);
   });
 
-  await test.step('4. Rejestracja nowego konta', async () => {
-    await registerNewUser(page);
+  const customerName = await test.step('4. Rejestracja nowego konta', async () => {
+    const name = await registerNewUser(page);
     await openCart(page);
     await expectCartContents(page, cart);
+    return name;
   });
 
   await test.step('5. Złożenie zamówienia na zawartość koszyka.', () => proceedToDelivery(page));
@@ -49,5 +51,16 @@ test('koszyk i rejestracja klienta', async ({ page }) => {
 
   await test.step('6. Wybór płatności przy odbiorze.', () => selectCashOnDelivery(page));
 
-  await test.step('8. Zatwierdzenie zamówienia.', () => confirmOrder(page));
+  const orderNumber = await test.step('8. Zatwierdzenie zamówienia.', () => confirmOrder(page));
+
+  await test.step('9. Sprawdzenie zamówienia w historii.', () =>
+    checkOrderInHistory(page, customerName, orderNumber),
+  );
+
+  /*
+  Baza do kroku 10:
+  const download1Promise = page.waitForEvent('download');
+  await page.getByRole('link').filter({ hasText: '' }).first().click();
+  const download1 = await download1Promise;
+  */
 });

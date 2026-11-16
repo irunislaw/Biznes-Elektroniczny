@@ -18,4 +18,6 @@ export async function registerNewUser(page: Page) {
 
   await page.getByRole('button', { name: 'Zapisz' }).click();
   await expect(page.getByRole('link', { name: fullName })).toBeVisible();
+
+  return fullName;
 }
