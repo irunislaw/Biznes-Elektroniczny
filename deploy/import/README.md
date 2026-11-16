@@ -1,5 +1,5 @@
 # Import kategorii i produktów
-Skrypt `import.py` przenosi do sklepu dane zebrane przez scraper (`scraper-results/category-tree.json`, `scraper-results/results.json` oraz pobrane zdjęcia). Korzysta z Web Service API PrestaShopa (`https://localhost:8443/api`). Stałe (ziarno losowania, liczba wątków, mapowanie stawek VAT na grupy reguł) są w `config.py`.
+Skrypt `import.py` przenosi do sklepu dane zebrane przez scraper (`scraper-results/category-tree.json`, `scraper-results/results.json` oraz pobrane zdjęcia), w tym promocje. Korzysta z Web Service API PrestaShopa (`https://localhost:8443/api`). Stałe (ziarno losowania, liczba wątków, mapowanie stawek VAT na grupy reguł) są w `config.py`.
 
 ## Uruchomienie
 Wymagania:
@@ -24,6 +24,9 @@ Klucz jest czytany ze zmiennej środowiskowej `PS_WEBSERVICE_KEY` (plik `.env`) 
 | `images` | GET, POST |
 | `stock_availables` | GET, PATCH |
 | `configurations` | GET, PATCH |
+| `specific_prices` | GET, POST, PATCH, DELETE |
+
+Uprawnienia ustawia `deploy/import/init_webservice.php` przy `make init`. Plik jest montowany do kontenera jako pojedynczy plik, więc po jego zmianie trzeba zrestartować kontener (`docker compose --env-file .env -f deploy/compose.yaml restart prestashop`) i ponownie uruchomić `make init`. Inaczej sklep użyje starej wersji uprawnień i API zwróci `401 Unauthorized`.
 
 ## Co robi skrypt
 - **Kategorie**: odtwarza drzewo kategorii i podkategorii ze sklepu źródłowego pod kategorią „Strona główna”.
@@ -33,6 +36,7 @@ Klucz jest czytany ze zmiennej środowiskowej `PS_WEBSERVICE_KEY` (plik `.env`) 
 - **Zdjęcia**: wysyłane z lokalnych plików scrapera, w kilku wątkach równolegle (`MAX_WORKERS`).
 - **Stany magazynowe**: losowane z zakresu 0–10 ze stałym ziarnem (`RANDOM_SEED`), więc każdy przebieg daje te same stany. Obecnie stan 0 ma ok. 8% produktów.
 - **Menu górne** (`ps_mainmenu`): pokazuje zaimportowane kategorie główne zamiast kategorii demo.
+- **Promocje**: produkty, które w sklepie źródłowym mają cenę promocyjną (`sale_price_gross`), dostają obniżkę kwotową (`specific_prices`): obniżka = cena brutto − cena promocyjna brutto. Sklep pokazuje starą cenę, rabat i nową cenę. Promocję ma 302 z 1161 produktów.
 
 Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
 
