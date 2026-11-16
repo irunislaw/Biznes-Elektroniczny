@@ -586,9 +586,9 @@ def main():
         )
 
         clear_sample_data(category_id_map, product_id_map)
+        promo_counter = set_promotions(products, product_id_map)
         add_images(products, product_id_map)
         set_stocks(products, product_id_map)
-        promo_counter = set_promotions(products, product_id_map)
 
     end_time = time.perf_counter()
     logger.info(
