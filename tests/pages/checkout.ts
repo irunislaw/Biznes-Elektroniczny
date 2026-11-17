@@ -45,7 +45,15 @@ export async function chooseRandomCarrier(page: Page) {
       has: page.getByText(carrierName, { exact: true }),
     });
     const carrier = deliveryOption.getByRole('radio');
-    await carrier.check();
+    // Jeśli zmienia się dostawa to czeka aż serwer ją zmieni
+    if (!(await carrier.isChecked())) {
+      await Promise.all([
+        page.waitForEvent('requestfinished', request =>
+          new URL(request.url()).searchParams.get('action') === 'selectDeliveryOption',
+        ),
+        carrier.check(),
+      ]);
+    }
     await expect(carrier).toBeChecked();
 
     const carrierPrice = (await deliveryOption.locator('.carrier-price').innerText()).trim();
@@ -77,11 +85,14 @@ export async function confirmOrder(page: Page) {
 
   const confirmation = page.getByRole('heading', { name: /Twoje zamówienie zostało potwierdzone/i });
   await expect(confirmation).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('#order-reference-value')).toHaveText(/^Numer zamówienia:\s*[A-Z]{9}$/);
+  const orderReferenceLabel = page.locator('#order-reference-value');
+  await expect(orderReferenceLabel).toHaveText(/^Numer zamówienia:\s*[A-Z]{9}$/);
   await expect(page.locator('#order-details').getByText('Metoda płatności: Płatność przy odbiorze', {
     exact: true,
   })).toBeVisible();
 
   const confirmedTotal = page.locator('#order-items tr.total-value td:last-child');
   await expect(confirmedTotal, 'Łączna kwota zamówienia').toHaveText(expectedTotal);
+
+  return (await orderReferenceLabel.innerText()).replace(/^Numer zamówienia:\s*/, '').trim();
 }
