@@ -15,6 +15,7 @@ export async function checkOrderInHistory(page: Page, customerName: string, orde
 
 export async function downloadOrderInvoice(page: Page, orderNumber: string) {
   const invoiceLink = orderRowByNumber(page, orderNumber).getByRole('link').filter({ hasText: '' });
+  await expect(invoiceLink, `Brak widocznego linku do faktury VAT dla zamówienia ${orderNumber}`).toBeVisible();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     invoiceLink.click(),

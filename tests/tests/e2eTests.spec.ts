@@ -5,7 +5,7 @@ import { checkOrderInHistory, downloadOrderInvoice } from '../pages/order-histor
 import { acceptCookies, prepareCartWithTenProducts, searchAndAddNewProduct } from '../pages/shopping';
 import { registerNewUser } from '../pages/registration';
 
-test('koszyk i rejestracja klienta', async ({ page }) => {
+test('zakup z płatnością przy odbiorze, sprawdzenie statusu zamówienia i pobranie faktury VAT', async ({ page }) => {
   test.setTimeout(90_000);
 
   await page.goto('/', { waitUntil: 'domcontentloaded' });
