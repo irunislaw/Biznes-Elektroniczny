@@ -95,8 +95,10 @@ Decyzja należy do zespołu na planowaniu sprintu 3. Każdy wiersz z sekcji 1–
 
 ## BE-33: co zostało usunięte
 
-Zmiany są w dwóch miejscach. CSS jest w `shop/themes/gitara/assets/css/custom.css`, a ustawienia modułów
-w `deploy/config/uklad.php`, który uruchamia `make init`. Szablonów nie nadpisujemy.
+CSS jest w `shop/themes/gitara/assets/css/custom.css`, a ustawienia modułów w `deploy/config/uklad.php`
+i `deploy/config/cms.php`, które uruchamia `make init`. Jeden szablon jest nadpisany, bo linków w stopce nie da się
+zmienić CSS: `shop/themes/gitara/modules/ps_customeraccountlinks/ps_customeraccountlinks.tpl` (kopia z Classic
+w motywie potomnym, Classic bez zmian, wymóg D1).
 **Zrzuty:** `przed/` to stan przed BE-33, `nasz/` to stan po nim, `zrodlo/` to sklep źródłowy.
 
 Układy stron (lewa kolumna albo pełna szerokość) były już takie jak w źródle: kategorie, nowe produkty,
@@ -113,8 +115,11 @@ i lewej kolumny.
 | Kafelek | L4 | `blockwishlist` jest wyłączony, więc nie ma serduszka. Znaczek „Nowy” jest ukryty w CSS, bo `PS_NB_DAYS_NEW_PRODUCT` = 0 wyczyściłby stronę „Nowe produkty”. | konfiguracja i CSS |
 | Karta produktu | P1, P2, P3 | Bez bloku demo `blockreassurance` (także w koszyku, K2). Specyfikacja to pogrubione linie bez punktorów. Strona mieści się w 360 px. | CSS |
 | Stopka | S2 | Newsletter przy lewej krawędzi, z małym napisem. | CSS |
-| Strona główna | G1 | Pod sliderem „Popularne produkty” (8 produktów przypiętych do kategorii „Strona główna”, po 2 z pierwszych kategorii menu) z linkiem „Wszystkie produkty”, potem obraz sklepu z godzinami otwarcia (`ps_banner`, na telefonie ukryty jak w źródle) i tekst o sklepie z podpisem zespołu (`cms/strona-glowna.html`), a pod nim drugi raz menu z linkiem „Katalog produktów” (`ps_mainmenu`, tylko na komputerze, jak w źródle). „Nowe produkty”, „Promocje” i „Najczęściej kupowane” są odpięte od strony głównej. | konfiguracja i CSS |
+| Stopka | S1 | „Nasza firma”: najpierw Regulamin, O sklepie, Formy płatności jak w źródle, potem Dostawa i Polityka prywatności (strony wymagane u nas, w źródle ich nie ma), Kontakt, Mapa strony. „Twoje konto” dla gościa: Dane osobowe, Zamówienia, Korekty płatności, Adresy jak w źródle (każdy link prowadzi przez logowanie). Tytuły „Produkty” i „Nasza firma” 18 px, dane sklepu 16 px, telefon i e-mail szare, odstępy jak w źródle. Wszystkie linki zwracają 200 albo przekierowują na logowanie. | `cms.php`, szablon `modules/ps_customeraccountlinks` w motywie (kopia z Classic, zmieniona tylko gałąź gościa) i CSS |
+| Strona główna | G1 | Pod sliderem „Popularne produkty” (8 produktów przypiętych do kategorii „Strona główna”, po 2 z pierwszych kategorii menu) z linkiem „Wszystkie produkty”, potem obraz sklepu z godzinami otwarcia (`ps_banner`, na telefonie ukryty jak w źródle) i tekst o sklepie z podpisem zespołu (`cms/strona-glowna.html`), a pod nim drugi raz menu z linkiem „Katalog produktów” (`ps_mainmenu`, tylko na komputerze, jak w źródle). „Nowe produkty”, „Promocje” i „Najczęściej kupowane” są odpięte od strony głównej. Kafelki produktów mają cień jak w źródle. | konfiguracja i CSS |
 | Nagłówek | sekcja 8 | Logo sklepu zamiast „my store”. | konfiguracja |
+| Katalog produktów | K0 | Kategoria główna nazywa się „Katalog produktów Gitara No.1”, ma adres `/2-katalog-produktow-gitara-no1` (stary `/2-strona-glowna` przekierowuje) i obrazek z `shop/themes/gitara/assets/katalog-produktow.jpg`. Bez bloku „Podkategorie” na tej stronie. | konfiguracja i CSS |
+| Wszystkie kategorie | — | Tytuł w nagłówku kategorii 22 px, tytuł drzewa w lewej kolumnie 15 px pogrubiony (jak w Classic 1.7), obrazek kategorii przy prawej krawędzi. | CSS |
 | Cały sklep | — | Czcionka Noto Sans (jak w Classic z PrestaShop 1.7) zamiast Manrope. Pliki są w motywie (`assets/fonts`, licencja OFL), nie z Google Fonts. | CSS |
 
 Test e2e koszyka przechodzi teraz do kategorii linkiem „Katalog produktów” z nagłówka, a nie linkiem

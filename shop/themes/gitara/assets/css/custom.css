@@ -147,3 +147,82 @@ body {
 #wrapper .top-menu a[data-depth="0"] {
   text-transform: uppercase;
 }
+
+/* ---- 7. Katalog produktów (kategoria główna, /2-katalog-produktow-gitara-no1) ----
+ * Nazwa i obrazek kategorii są w deploy/config/uklad.php (K0). W źródle nie ma bloku „Podkategorie”
+ * (są w drzewie w lewej kolumnie), więc tu go ukrywamy. */
+.category-id-2 #subcategories {
+  display: none;
+}
+
+/* Nagłówek kategorii i tytuł drzewa kategorii w rozmiarach z Classic 1.7, jak w źródle na wszystkich
+ * stronach kategorii (Classic 2.x: 32 px i 24 px, źródło: 22 px i 15 px pogrubione). Obrazek kategorii
+ * przy prawej krawędzi także wtedy, gdy kategoria nie ma opisu (w źródle spycha go opis). */
+.block-category .h1 {
+  font-size: 1.375rem;
+  line-height: 1.1;
+}
+
+.block-category .category-cover {
+  margin-left: auto;
+}
+
+.block-categories .category-top-menu > li > a.h6 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+/* Strona główna: cień pod kafelkami „Popularnych produktów”, taki jak w źródle (Classic 1.7). */
+#index .product-miniature .thumbnail-container {
+  box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Tytuły sekcji z produktami („Popularne produkty”) pogrubione, jak w źródle (Classic 2.x: 500, 21 px).
+ * Selektory jak w theme.css z Classic, bo ta sama specyficzność wygrywa dzięki kolejności plików. */
+#products .products-section-title,
+.featured-products .products-section-title,
+.product-accessories .products-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ---- 8. Stopka jak w źródle (Classic 1.7) ----
+ * Linki w „Twoje konto” są w szablonie modules/ps_customeraccountlinks (kopia z Classic), a kolejność
+ * stron w „Nasza firma” w deploy/config/cms.php. Tu tylko rozmiary i kolory. */
+
+/* Tytuły bloków z linkami („Produkty”, „Nasza firma”): w źródle 18 px, „Twoje konto” i „Informacja
+ * o sklepie” zostają 16 px. */
+@media (min-width: 768px) {
+  .footer-container .links .col-md-6.wrapper > .h3 {
+    font-size: 1.125rem;
+  }
+}
+
+/* „Informacja o sklepie”: tekst 16 px, telefon i e-mail szare jak reszta tekstu (Classic 2.x: 14 px,
+ * linki w kolorze głównym). Linki tel: i mailto: zostają klikalne. */
+.footer-container .block-contact {
+  font-size: 1rem;
+}
+
+.footer-container .block-contact a {
+  color: inherit;
+}
+
+.footer-container .block-contact a:hover {
+  color: #24b9d7;
+}
+
+/* Odstępy jak w źródle: stopka 20 px od góry (+ 20 px marginesu), tytuły bloków 8 px nad linkami
+ * (Classic 2.x: 40 px i 16 px). Na telefonie bloki są zwijane i zostają bez zmian. */
+@media (min-width: 768px) {
+  .footer-container {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+  }
+
+  .footer-container .links .h3,
+  .footer-container .myaccount-title,
+  .footer-container .block-contact-title {
+    margin-bottom: 0.5rem;
+  }
+}

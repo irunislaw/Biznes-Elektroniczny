@@ -27,11 +27,66 @@ function ustaw(string $klucz, $wartosc): void
     }
 }
 
+// Obrazy sklepu leżą w motywie (shop/themes/gitara/assets), który init.sh kopiuje do sklepu.
+// PrestaShop szuka ich w img/ albo w katalogu modułu, więc kopiujemy je tam, tylko gdy plik się zmienił.
+// Zwraca true, gdy skopiował.
+function skopiuj(string $skad, string $dokad): bool
+{
+    if (!is_file($skad)) {
+        throw new RuntimeException("Brak pliku $skad");
+    }
+    if (is_file($dokad) && md5_file($skad) === md5_file($dokad)) {
+        return false;
+    }
+    if (!copy($skad, $dokad)) {
+        throw new RuntimeException("Nie udalo sie skopiowac $skad do $dokad");
+    }
+    chown($dokad, 'www-data');
+    chgrp($dokad, 'www-data');
+    return true;
+}
+
+$obrazy = _PS_ALL_THEMES_DIR_ . 'gitara/assets/';
+$idKategoriiGlownej = (int) Configuration::get('PS_HOME_CATEGORY');
+
+// K0: kategoria główna („Katalog produktów” w menu) jak w źródle: nazwa „Katalog produktów Gitara No.1”,
+// adres /2-katalog-produktow-gitara-no1 i obrazek. Nazwa jest w nagłówku tej strony i w tytule drzewa
+// kategorii w lewej kolumnie. Okruszki jej nie pokazują (kategoria główna jest pomijana), a import
+// (deploy/import/import.py) jej nie zmienia. Musi być przed N1, bo adres w menu zależy od link_rewrite.
+$kategoriaGlowna = new Category($idKategoriiGlownej);
+$zmiana = false;
+foreach (Language::getIDs(false) as $idJezyka) {
+    foreach (['name' => 'Katalog produktów Gitara No.1', 'link_rewrite' => 'katalog-produktow-gitara-no1'] as $pole => $wartosc) {
+        if (($kategoriaGlowna->{$pole}[$idJezyka] ?? '') !== $wartosc) {
+            $kategoriaGlowna->{$pole}[$idJezyka] = $wartosc;
+            $zmiana = true;
+        }
+    }
+}
+if ($zmiana && !$kategoriaGlowna->update()) {
+    throw new RuntimeException('Nie udalo sie zmienic nazwy kategorii glownej');
+}
+
+// Obrazek kategorii: oryginał img/c/<id>.jpg i miniatury dla typów z zakresu kategorii (jak przy
+// wgraniu w panelu). Plik ma już wymiary category_default (141 × 180), który pokazuje nagłówek kategorii.
+$plikKategorii = _PS_CAT_IMG_DIR_ . $idKategoriiGlownej . '.jpg';
+$nowyObrazek = skopiuj($obrazy . 'katalog-produktow.jpg', $plikKategorii);
+foreach (ImageType::getImagesTypes('categories') as $typ) {
+    $miniatura = _PS_CAT_IMG_DIR_ . $idKategoriiGlownej . '-' . $typ['name'] . '.jpg';
+    if (!$nowyObrazek && is_file($miniatura)) {
+        continue;
+    }
+    if (!ImageManager::resize($plikKategorii, $miniatura, (int) $typ['width'], (int) $typ['height'], 'jpg')) {
+        throw new RuntimeException("Nie udalo sie zrobic miniatury $miniatura");
+    }
+    chown($miniatura, 'www-data');
+    chgrp($miniatura, 'www-data');
+}
+
 // N1: w menu górnym jedna pozycja „Katalog produktów” prowadząca do kategorii głównej, jak w źródle.
 // Wyszukiwarka mieści się wtedy w tym samym wierszu bez zmian w CSS. Uwaga: import (deploy/import/import.py,
 // setup_ps_main_menu) wpisuje do menu kategorie główne, więc po ponownym imporcie trzeba uruchomić make init.
 $etykieta = 'Katalog produktów';
-$idKategoriiGlownej = (int) Configuration::get('PS_HOME_CATEGORY');
 $etykiety = [];
 $adresy = [];
 foreach (Language::getIDs(false) as $idJezyka) {
@@ -75,26 +130,6 @@ $wishlist = Module::getInstanceByName('blockwishlist');
 if ($wishlist && Module::isEnabled('blockwishlist') && !$wishlist->disable()) {
     throw new RuntimeException('Nie udalo sie wylaczyc blockwishlist');
 }
-
-// Obrazy sklepu leżą w motywie (shop/themes/gitara/assets), który init.sh kopiuje do sklepu.
-// PrestaShop szuka logo w img/, a obrazu ps_banner w katalogu modułu, więc kopiujemy je tam,
-// tylko gdy plik się zmienił.
-function skopiuj(string $skad, string $dokad): void
-{
-    if (!is_file($skad)) {
-        throw new RuntimeException("Brak pliku $skad");
-    }
-    if (is_file($dokad) && md5_file($skad) === md5_file($dokad)) {
-        return;
-    }
-    if (!copy($skad, $dokad)) {
-        throw new RuntimeException("Nie udalo sie skopiowac $skad do $dokad");
-    }
-    chown($dokad, 'www-data');
-    chgrp($dokad, 'www-data');
-}
-
-$obrazy = _PS_ALL_THEMES_DIR_ . 'gitara/assets/';
 
 // Logo sklepu zamiast „my store” (roznice.md, sekcja 8). Maile i faktury biorą PS_LOGO, gdy nie mają własnego.
 $plikLogo = 'gitara-logo.png';
@@ -209,6 +244,30 @@ if ($naGlownej === 0) {
     }
     if (!$wybrane) {
         echo "UWAGA: brak produktów do sekcji „Popularne produkty” (czy import był uruchomiony?)\n";
+    }
+}
+
+// S1: link do korekt płatności w stopce i na stronie „Moje konto” nazwany jak w źródle. PrestaShop 8
+// tłumaczy „Credit slips” jako „Potwierdzenia zwrotów”, a źródło (1.7) jako „Moje pokwitowania - korekty
+// płatności”. Nadpisanie jak z panelu (Międzynarodowe > Tłumaczenia): wiersz w ps_translation bez motywu,
+// w obu domenach, w których jest ten napis (moduł: stopka gościa, motyw: stopka klienta i „Moje konto”).
+// Katalog tłumaczeń jest w cache, więc zmiana jest widoczna po wyczyszczeniu cache (robi to make init).
+$idPolskiego = (int) Language::getIdByIso('pl');
+$tlumaczenia = [
+    ['Credit slips', 'ModulesCustomeraccountlinksAdmin', 'Moje pokwitowania - korekty płatności'],
+    ['Credit slips', 'ShopThemeCustomeraccount', 'Moje pokwitowania - korekty płatności'],
+];
+foreach ($tlumaczenia as [$klucz, $domena, $tekst]) {
+    $warunek = 'id_lang = ' . $idPolskiego . ' AND `key` = "' . pSQL($klucz) . '" AND domain = "' . pSQL($domena) . '" AND theme IS NULL';
+    $wiersz = $db->getRow('SELECT id_translation, translation FROM ' . _DB_PREFIX_ . 'translation WHERE ' . $warunek);
+    if ($wiersz && $wiersz['translation'] === $tekst) {
+        continue;
+    }
+    $zapisano = $wiersz
+        ? $db->update('translation', ['translation' => pSQL($tekst)], 'id_translation = ' . (int) $wiersz['id_translation'])
+        : $db->insert('translation', ['id_lang' => $idPolskiego, 'key' => pSQL($klucz), 'translation' => pSQL($tekst), 'domain' => pSQL($domena)]);
+    if (!$zapisano) {
+        throw new RuntimeException("Nie udalo sie zapisac tlumaczenia $klucz ($domena)");
     }
 }
 
