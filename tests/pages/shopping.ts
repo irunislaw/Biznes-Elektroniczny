@@ -8,7 +8,7 @@ export async function prepareCartWithTenProducts(page: Page) {
 
   const categories = await test.step('Pobierz kategorie z katalogu', async () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
-    await page.getByRole('link', { name: /^Wszystkie produkty\s*?$/ }).click();
+    await page.locator('header').getByRole('link', { name: 'Katalog produktów' }).click();
 
     const categoryLinks = page.locator('#left-column .category-sub-menu li > a');
     await expect(categoryLinks.first()).toBeVisible();
