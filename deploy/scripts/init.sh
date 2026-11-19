@@ -5,8 +5,8 @@
 #  3. pobiera archiwum zdjęć z Releases (ZDJECIA_URL), a gdy jest niedostępne, zdjęcia z adresów
 #     w scraper-results/results.json; potem tworzy brakujące miniatury,
 #  4. ustawia domenę, SSL i konto administratora z .env,
-#  5. kopiuje moduł z shop/modules/ i motyw z shop/themes/, uruchamia skrypty konfiguracji
-#     z deploy/config/ (w tym włączenie motywu) i czyści cache.
+#  5. uruchamia skrypty konfiguracji z deploy/config/ (w tym włączenie motywu) i czyści cache.
+#  Moduł z shop/modules/ i motyw z shop/themes/ są kopiowane zaraz po kroku 1, bo zrzut ma już włączony motyw.
 # Drugie uruchomienie niczego nie psuje: zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie
 # jest inna wersja danych, a skrypty konfiguracji zmieniają tylko to, co się różni.
 # make init DANE=0 pomija kroki 2 i 3 (sklep zostaje z danymi demo), np. przed nowym importem.
@@ -68,6 +68,16 @@ if sklep sh -c 'test -d "$PS_FOLDER_INSTALL"'; then
 fi
 echo "Sklep zainstalowany"
 
+# Świeża kopia modułu i motywu potomnego z repozytorium przy każdym make init. Przed wczytaniem zrzutu,
+# bo zrzut ma już włączony motyw gitara, a skrypty PHP z kroków 3 i 4 (config.inc.php) bez jego plików
+# kończą się wyjątkiem ThemeRepository.
+sklep rm -rf /var/www/html/modules/becookiebanner
+$COMPOSE cp shop/modules/becookiebanner prestashop:/var/www/html/modules/becookiebanner
+sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
+sklep rm -rf /var/www/html/themes/gitara
+$COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
+sklep chown -R www-data:www-data /var/www/html/themes/gitara
+
 krok "2/5 Baza danych"
 if [ "$DANE" = 0 ]; then
     echo "Pominięte (DANE=0): sklep zostaje z danymi demo instalatora"
@@ -105,15 +115,8 @@ krok "4/5 Domena, SSL i administrator z .env"
 sklep php /opt/dane/dopasuj.php
 
 krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
-# Świeża kopia modułu z repozytorium przy każdym make init.
-sklep rm -rf /var/www/html/modules/becookiebanner
-$COMPOSE cp shop/modules/becookiebanner prestashop:/var/www/html/modules/becookiebanner
-sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
-# To samo dla motywu potomnego. Włącza go theme.php, pierwszy w pętli, bo przy przełączaniu motywu
-# PrestaShop zapisuje od nowa hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
-sklep rm -rf /var/www/html/themes/gitara
-$COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
-sklep chown -R www-data:www-data /var/www/html/themes/gitara
+# Motyw potomny włącza theme.php, pierwszy w pętli, bo przy przełączaniu motywu PrestaShop zapisuje
+# od nowa hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
 for skrypt in theme locale taxes payments carriers mail cookies cms; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
