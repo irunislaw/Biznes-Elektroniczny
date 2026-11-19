@@ -107,11 +107,21 @@ Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kat
 - uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
 
 # Testowanie
-`make test` - uruchamia testy E2E sklepu w Playwright i generuje raport HTML z wynikami.
 
-- Uruchamia testy end-to-end w izolowanym kontenerze (nie wymaga instalacji Node.js ani przeglądarek).
-- Automatycznie generuje i udostępnia interaktywny raport HTML pod adresem http://localhost:9323.
-- Zapisuje zrzuty ekranu z ewentualnych błędów w folderze test-results/.
+W pliku `.env` ustaw adres sklepu w `BASE_URL`, np. `BASE_URL=https://localhost:8443` dla lokalnego środowiska z [`.env.example`](.env.example). 
+Po uruchomieniu kontenerów wykonaj w katalogu głównym repozytorium:
+
+```sh
+make test
+```
+
+Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybie headless. Komenda kończy się po zapisaniu wyników.
+
+- Raport HTML znajdzie się w `tests/playwright-report/index.html`. 
+  - Aby go obejrzeć, uruchom `make raport` i wejdź na [http://localhost:9323](http://localhost:9323). 
+  - Serwer raportu zatrzymasz przez `Ctrl+C`.
+- Raport JUnit znajdzie się w `tests/playwright-report/junit-report.xml`.
+- Zrzuty ekranu przy błędach znajdą się w `tests/test-results/`.
 
 `make sprawdz` - sprawdza metryki danych sklepu i przy każdej pokazuje wynik oraz `OK` albo `BŁĄD`, gdy dane nie spełniają wymagania.
 
