@@ -1,13 +1,22 @@
 import { test, expect, type Page } from '@playwright/test';
 import { addProductToCart, expectCartContents, openCart } from './cart';
 
+export async function acceptCookies(page: Page) {
+  const cookieBanner = page.getByRole('region', {
+    name: 'Informacja o plikach cookies',
+  });
+
+  await expect(cookieBanner).toBeVisible();
+  await cookieBanner.getByRole('button', { name: 'Akceptuję', exact: true }).click();
+  await expect(cookieBanner).toBeHidden();
+}
+
 export async function prepareCartWithTenProducts(page: Page) {
   const targetCount = 10;
   const maxPerCategory = 5;
   const addedProducts = new Map<string, number>();
 
   const categories = await test.step('Pobierz kategorie z katalogu', async () => {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.locator('header').getByRole('link', { name: 'Katalog produktów' }).click();
 
     const categoryLinks = page.locator('#left-column .category-sub-menu li > a');
@@ -53,15 +62,27 @@ async function addCategoryProducts(page: Page, categoryUrl: string, cart: Map<st
 }
 
 export async function searchAndAddNewProduct(page: Page, cart: ReadonlyMap<string, number>) {
-  const searchTerm = 'Hummingbird';
-  const searchBar = page.getByRole('textbox', { name: 'Szukaj' });
-  await searchBar.fill(searchTerm);
-  await Promise.all([
-    page.waitForURL(/controller=search/, { waitUntil: 'domcontentloaded' }),
-    searchBar.press('Enter'),
-  ]);
+  const searchTerms = [
+    'Hummingbird',
+    'Kabel',
+    'pokrowiec',
+    'statyw',
+    'Band',
+    'instrument',
+  ].filter(Boolean);
+  const searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
 
-  const results = await readCatalogProducts(page);
+  const results = await test.step(`Wyszukaj „${searchTerm}”`, async () => {
+    const searchBar = page.getByRole('textbox', { name: 'Szukaj' });
+    await searchBar.fill(searchTerm);
+    await Promise.all([
+      page.waitForURL(/controller=search/, { waitUntil: 'domcontentloaded' }),
+      searchBar.press('Enter'),
+    ]);
+    return readCatalogProducts(page);
+  });
+
+  await expect(results.length).toBeGreaterThan(1);
   while (results.length > 0) {
     const index = Math.floor(Math.random() * results.length);
     const [product] = results.splice(index, 1);

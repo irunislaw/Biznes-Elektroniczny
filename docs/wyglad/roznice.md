@@ -123,15 +123,14 @@ i lewej kolumny.
 | Cały sklep | — | Czcionka Noto Sans (jak w Classic z PrestaShop 1.7) zamiast Manrope. Pliki są w motywie (`assets/fonts`, licencja OFL), nie z Google Fonts. | CSS |
 
 Test e2e koszyka przechodzi teraz do kategorii linkiem „Katalog produktów” z nagłówka, a nie linkiem
-„Wszystkie produkty” ze strony głównej. Link z nagłówka jest na każdej stronie, a link na głównej zależy od
-tego, czy „Popularne produkty” mają co pokazać.
+„Wszystkie nowe produkty” ze strony głównej (sekcja „Nowe produkty” jest odpięta). Link z nagłówka jest na każdej stronie.
 
 Po ponownym imporcie (`deploy/import/import.py`) w menu znów będą kategorie główne, dopóki nie uruchomi się `make init`.
 
 Produkty na stronie głównej `uklad.php` przypina tylko wtedy, gdy kategoria „Strona główna” jest pusta,
 więc wybór zmieniony w panelu (Katalog > Produkty > Powiązania) zostaje. Import przy aktualizacji nie zmienia
 kategorii produktów, więc przypisanie zostaje też po ponownym imporcie. Te same produkty widać na stronie
-„Katalog produktów”. Test `example.spec.ts` (nagłówek „Popularne produkty”) przechodzi.
+„Katalog produktów”.
 
 Logo i obraz sklepu są w motywie (`shop/themes/gitara/assets/logo.png` i `baner.jpg`). `uklad.php` kopiuje
 je tam, gdzie szuka ich PrestaShop (`img/` i katalog `ps_banner`). Żeby je podmienić, wystarczy zamienić pliki

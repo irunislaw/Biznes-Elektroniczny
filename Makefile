@@ -7,7 +7,7 @@ ifneq ($(OS),Windows_NT)
 DOCKER_USER = --user $(shell id -u):$(shell id -g)
 endif
 
-.PHONY: up down init zrzut logs reset certs sprawdz wyglad duplikaty test
+.PHONY: up down init zrzut logs reset certs sprawdz wyglad duplikaty test raport
 
 certs:
 		docker run --rm $(DOCKER_USER) -v "$(CURDIR):/work" -w /work --entrypoint sh $(OPENSSL_IMAGE) deploy/scripts/gen-cert.sh
@@ -24,7 +24,9 @@ logs:
 reset:
 		$(COMPOSE) down -v
 test:
-		$(COMPOSE) exec playwright npx playwright test
+		$(COMPOSE) exec -T playwright npx playwright test
+raport:
+		$(COMPOSE) exec playwright npx playwright show-report playwright-report --host 0.0.0.0 --port 9323
 wyglad:
 		$(COMPOSE) exec playwright npx playwright test -c zrzuty.config.ts
 sprawdz:

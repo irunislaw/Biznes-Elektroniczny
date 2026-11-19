@@ -10,6 +10,13 @@ JOIN ps_category_lang cl
 GROUP BY c.id_parent, cl.link_rewrite
 HAVING COUNT(*) > 1;
 
+SELECT id_product, COUNT(*) AS ile
+FROM ps_specific_price
+WHERE id_cart = 0
+GROUP BY id_product
+HAVING COUNT(*) > 1;
+
 SELECT (SELECT COUNT(*) FROM ps_product)  AS produkty,
        (SELECT COUNT(*) FROM ps_category) AS kategorie,
-       (SELECT COUNT(*) FROM ps_image)    AS zdjecia;
+       (SELECT COUNT(*) FROM ps_image)    AS zdjecia,
+       (SELECT COUNT(*) FROM ps_specific_price) AS promocje;
