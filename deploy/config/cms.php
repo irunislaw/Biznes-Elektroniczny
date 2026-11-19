@@ -9,14 +9,9 @@ const CONTENT_DIR = '/opt/prestashop-config/cms';
 const CMS_CATEGORY_ID = 1;
 const FOOTER_HOOK = 'displayFooter';
 
-// W tej kolejności strony będą w stopce. 'demo' to strona z instalatora do przerobienia.
+// W tej kolejności strony będą w stopce: najpierw jak w źródle (regulamin, o sklepie, płatności), potem
+// dostawa i polityka prywatności, których źródło nie ma w stopce. 'demo' to strona z instalatora do przerobienia.
 $pages = [
-    [
-        'link_rewrite' => 'o-sklepie',
-        'demo' => 'about-us',
-        'meta_title' => 'O sklepie',
-        'meta_description' => SHOP_NAME . ' – sklep muzyczny z ukulele, syntezatorami, perkusją, harmonijkami ustnymi i przewodami audio.',
-    ],
     [
         'link_rewrite' => 'regulamin',
         'demo' => 'terms-and-conditions-of-use',
@@ -24,10 +19,16 @@ $pages = [
         'meta_description' => 'Regulamin sklepu ' . SHOP_NAME . ': zamówienia, ceny, płatności, dostawa, odstąpienie od umowy i reklamacje.',
     ],
     [
-        'link_rewrite' => 'polityka-prywatnosci',
-        'demo' => null,
-        'meta_title' => 'Polityka prywatności',
-        'meta_description' => 'Jakie dane zbiera sklep ' . SHOP_NAME . ', w jakim celu, jakie prawa ma klient i jakich plików cookies używamy.',
+        'link_rewrite' => 'o-sklepie',
+        'demo' => 'about-us',
+        'meta_title' => 'O sklepie',
+        'meta_description' => SHOP_NAME . ' – sklep muzyczny z ukulele, syntezatorami, perkusją, harmonijkami ustnymi i przewodami audio.',
+    ],
+    [
+        'link_rewrite' => 'formy-platnosci',
+        'demo' => 'secure-payment',
+        'meta_title' => 'Formy płatności',
+        'meta_description' => 'Przelew tradycyjny lub płatność przy odbiorze. Faktura VAT do każdego zamówienia.',
     ],
     [
         'link_rewrite' => 'dostawa',
@@ -36,10 +37,10 @@ $pages = [
         'meta_description' => 'Kurier za 14,99 zł i kurier ekspres za 24,99 zł. Darmowa dostawa powyżej 2000 zł brutto, tylko w Polsce.',
     ],
     [
-        'link_rewrite' => 'formy-platnosci',
-        'demo' => 'secure-payment',
-        'meta_title' => 'Formy płatności',
-        'meta_description' => 'Przelew tradycyjny lub płatność przy odbiorze. Faktura VAT do każdego zamówienia.',
+        'link_rewrite' => 'polityka-prywatnosci',
+        'demo' => null,
+        'meta_title' => 'Polityka prywatności',
+        'meta_description' => 'Jakie dane zbiera sklep ' . SHOP_NAME . ', w jakim celu, jakie prawa ma klient i jakich plików cookies używamy.',
     ],
 ];
 

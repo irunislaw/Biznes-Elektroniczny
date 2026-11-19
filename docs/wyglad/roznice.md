@@ -92,3 +92,48 @@ PDF wymaga układu „identycznego lub zbliżonego”, bez kolorystyki. Proponuj
 Niezależnie od poziomu warto zaplanować tickety z sekcji 8, zwłaszcza logo, slider i promocje. Bez nich porównanie ze źródłem wypadnie słabo nawet przy dobrym układzie.
 
 Decyzja należy do zespołu na planowaniu sprintu 3. Każdy wiersz z sekcji 1–7 to kandydat na osobny ticket albo na podzadanie jednego ticketu „Układ: poziom 1”.
+
+## BE-33: co zostało usunięte
+
+CSS jest w `shop/themes/gitara/assets/css/custom.css`, a ustawienia modułów w `deploy/config/uklad.php`
+i `deploy/config/cms.php`, które uruchamia `make init`. Jeden szablon jest nadpisany, bo linków w stopce nie da się
+zmienić CSS: `shop/themes/gitara/modules/ps_customeraccountlinks/ps_customeraccountlinks.tpl` (kopia z Classic
+w motywie potomnym, Classic bez zmian, wymóg D1).
+**Zrzuty:** `przed/` to stan przed BE-33, `nasz/` to stan po nim, `zrodlo/` to sklep źródłowy.
+
+Układy stron (lewa kolumna albo pełna szerokość) były już takie jak w źródle: kategorie, nowe produkty,
+promocje i kontakt mają lewą kolumnę, reszta stron ma pełną szerokość. Zmieniła się zawartość nagłówka
+i lewej kolumny.
+
+| Obszar | Wiersze | Zmiana | Gdzie |
+|---|---|---|---|
+| Nagłówek | N1 (a) | W menu jest jedna pozycja „Katalog produktów” (link do kategorii głównej), jak w źródle. Menu i wyszukiwarka stoją w jednym wierszu. | konfiguracja i CSS |
+| Nagłówek, telefon | N2 | Bez zmian. | |
+| Lewa kolumna | L1 | Drzewo zaczyna się od bieżącej kategorii („Sopranowe” na liście sopranowych). Bloki „Marki” i „Dostawcy” są odpięte. | konfiguracja |
+| Telefon | L2, L5 | Bez drzewa kategorii i bez okruszków na wszystkich stronach (w źródle `hidden-sm-down`), więc produkty są od razu pod tytułem. | CSS |
+| Lista produktów | L3 | 16 produktów na stronę. | konfiguracja |
+| Kafelek | L4 | `blockwishlist` jest wyłączony, więc nie ma serduszka. Znaczek „Nowy” jest ukryty w CSS, bo `PS_NB_DAYS_NEW_PRODUCT` = 0 wyczyściłby stronę „Nowe produkty”. | konfiguracja i CSS |
+| Karta produktu | P1, P2, P3 | Bez bloku demo `blockreassurance` (także w koszyku, K2). Specyfikacja to pogrubione linie bez punktorów. Strona mieści się w 360 px. | CSS |
+| Stopka | S2 | Newsletter przy lewej krawędzi, z małym napisem. | CSS |
+| Stopka | S1 | „Nasza firma”: najpierw Regulamin, O sklepie, Formy płatności jak w źródle, potem Dostawa i Polityka prywatności (strony wymagane u nas, w źródle ich nie ma), Kontakt, Mapa strony. „Twoje konto” dla gościa: Dane osobowe, Zamówienia, Korekty płatności, Adresy jak w źródle (każdy link prowadzi przez logowanie). Tytuły „Produkty” i „Nasza firma” 18 px, dane sklepu 16 px, telefon i e-mail szare, odstępy jak w źródle. Wszystkie linki zwracają 200 albo przekierowują na logowanie. | `cms.php`, szablon `modules/ps_customeraccountlinks` w motywie (kopia z Classic, zmieniona tylko gałąź gościa) i CSS |
+| Strona główna | G1 | Pod sliderem „Popularne produkty” (8 produktów przypiętych do kategorii „Strona główna”, po 2 z pierwszych kategorii menu) z linkiem „Wszystkie produkty”, potem obraz sklepu z godzinami otwarcia (`ps_banner`, na telefonie ukryty jak w źródle) i tekst o sklepie z podpisem zespołu (`cms/strona-glowna.html`), a pod nim drugi raz menu z linkiem „Katalog produktów” (`ps_mainmenu`, tylko na komputerze, jak w źródle). „Nowe produkty”, „Promocje” i „Najczęściej kupowane” są odpięte od strony głównej. Kafelki produktów mają cień jak w źródle. | konfiguracja i CSS |
+| Nagłówek | sekcja 8 | Logo sklepu zamiast „my store”. | konfiguracja |
+| Katalog produktów | K0 | Kategoria główna nazywa się „Katalog produktów Gitara No.1”, ma adres `/2-katalog-produktow-gitara-no1` (stary `/2-strona-glowna` przekierowuje) i obrazek z `shop/themes/gitara/assets/katalog-produktow.jpg`. Bez bloku „Podkategorie” na tej stronie. | konfiguracja i CSS |
+| Wszystkie kategorie | — | Tytuł w nagłówku kategorii 22 px, tytuł drzewa w lewej kolumnie 15 px pogrubiony (jak w Classic 1.7), obrazek kategorii przy prawej krawędzi. | CSS |
+| Cały sklep | — | Czcionka Noto Sans (jak w Classic z PrestaShop 1.7) zamiast Manrope. Pliki są w motywie (`assets/fonts`, licencja OFL), nie z Google Fonts. | CSS |
+
+Test e2e koszyka przechodzi teraz do kategorii linkiem „Katalog produktów” z nagłówka, a nie linkiem
+„Wszystkie nowe produkty” ze strony głównej (sekcja „Nowe produkty” jest odpięta). Link z nagłówka jest na każdej stronie.
+
+Po ponownym imporcie (`deploy/import/import.py`) w menu znów będą kategorie główne, dopóki nie uruchomi się `make init`.
+
+Produkty na stronie głównej `uklad.php` przypina tylko wtedy, gdy kategoria „Strona główna” jest pusta,
+więc wybór zmieniony w panelu (Katalog > Produkty > Powiązania) zostaje. Import przy aktualizacji nie zmienia
+kategorii produktów, więc przypisanie zostaje też po ponownym imporcie. Te same produkty widać na stronie
+„Katalog produktów”.
+
+Logo i obraz sklepu są w motywie (`shop/themes/gitara/assets/logo.png` i `baner.jpg`). `uklad.php` kopiuje
+je tam, gdzie szuka ich PrestaShop (`img/` i katalog `ps_banner`). Żeby je podmienić, wystarczy zamienić pliki
+i uruchomić `make init`.
+
+Zostaje poza BE-33: zdjęcia w sliderze (dziś demo „SAMPLE”) oraz komentarze i „Zobacz także” na karcie produktu (P4).

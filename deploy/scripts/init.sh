@@ -114,7 +114,7 @@ sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
 sklep rm -rf /var/www/html/themes/gitara
 $COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
 sklep chown -R www-data:www-data /var/www/html/themes/gitara
-for skrypt in theme locale taxes payments carriers mail cookies cms; do
+for skrypt in theme locale taxes payments carriers mail cookies cms uklad; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
 sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1

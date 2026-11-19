@@ -1,5 +1,228 @@
 /*
  * Własne style motywu gitara. Ładowane po theme.css z Classic (priorytet 1000),
  * więc reguły stąd nadpisują Classic bez !important przy tej samej specyficzności.
- * Zakres zmian: docs/wyglad/roznice.md.
+ * Zakres zmian: docs/wyglad/roznice.md (numery w nawiasach, np. N1, to wiersze z tego pliku).
  */
+
+/* ---- 1. Nagłówek: menu i wyszukiwarka w jednym wierszu (N1) ----
+ * Menu ma jedną pozycję „Katalog produktów” (deploy/config/uklad.php), jak w źródle. W Classic 2.x
+ * menu jest jednak blokiem na całą szerokość, więc wyszukiwarka (float: right) i tak spadałaby pod nie.
+ * Flex ustawia je w jednym wierszu: menu po lewej, wyszukiwarka po prawej, jak w źródle.
+ * Na telefonie (< 768 px) bez zmian: menu jest w hamburgerze, a wyszukiwarka pod logo (N2). */
+@media (min-width: 768px) {
+  #header .header-top-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  #header .header-top-right #_desktop_top_menu {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Classic ogranicza wyszukiwarkę do 13rem i ucina placeholder. W źródle ma ok. 250 px. */
+  #header .header-top-right #search_widget {
+    flex: 0 0 16rem;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* ---- 2. Lista produktów (L1, L2, L4, L5) ----
+ * Lewa kolumna (drzewo od bieżącej kategorii, bez „Marki” i „Dostawcy”), 16 produktów na stronę
+ * i wyłączone serduszko ulubionych są w deploy/config/uklad.php. Tu zostaje to, czego nie da się
+ * zrobić konfiguracją. */
+
+/* L4: znaczek „Nowy”. W źródle jest tylko na produktach dodanych niedawno, a u nas wszystkie
+ * przyszły jednym importem, więc miałby go każdy produkt. PS_NB_DAYS_NEW_PRODUCT = 0 usunąłby
+ * znaczek, ale wyczyściłby też stronę „Nowe produkty”. Inne znaczki (promocja, brak na stanie) zostają. */
+.product-flags .product-flag.new {
+  display: none;
+}
+
+/* L2, L5: na telefonie źródło nie pokazuje drzewa kategorii ani okruszków (hidden-sm-down
+ * w Classic z PrestaShop 1.7), więc produkty są od razu pod tytułem kategorii. Kategorie są
+ * w menu (hamburger). Bloki z innymi treściami w lewej kolumnie (np. dane sklepu na stronie
+ * kontaktu) zostają, tak jak w źródle. */
+@media (max-width: 767px) {
+  #left-column .block-categories,
+  #wrapper .breadcrumb {
+    display: none;
+  }
+}
+
+/* ---- 3. Karta produktu (P1, P2) ----
+ * Blok blockreassurance z tekstem demo modułu („Security policy (edit with the Customer
+ * Reassurance module)”). Ten sam blok jest pod podsumowaniem koszyka (K2). */
+.blockreassurance_product {
+  display: none;
+}
+
+/* Opisy z importu mają specyfikację jako <ul><li><h3>…</h3></li></ul>. Classic wyświetla h3
+ * jako blok z marginesem, więc punktor stał w osobnej linii nad tekstem, a tekst był szary
+ * (kolor li). W źródle to pogrubione linie bez punktorów, jedna pod drugą. */
+.product-information .product-description ul:has(> li > h3) {
+  padding-left: 0;
+  list-style: none;
+}
+
+.product-information .product-description li > h3 {
+  margin: 0 0 0.375rem;
+  line-height: 1.5;
+  color: #232323;
+}
+
+/* ---- 4. Stopka: newsletter po lewej (S2) ----
+ * Classic 2.x wyśrodkowuje blok (max-width 50rem, margin auto) i daje duży nagłówek.
+ * W źródle napis jest mały i zaczyna się przy lewej krawędzi, w jednej linii z kolumnami stopki. */
+#footer .block_newsletter {
+  margin-left: 0;
+}
+
+#footer .block_newsletter #block-newsletter-label {
+  font-size: 0.9375rem;
+  line-height: 1.5rem;
+  color: #7a7a7a;
+}
+
+/* ---- 5. Czcionka Noto Sans jak w źródle (Classic z PrestaShop 1.7) ----
+ * Classic 2.x ma Manrope, przez co cały sklep wygląda inaczej niż źródło. Pliki są w motywie
+ * (assets/fonts, z paczki @fontsource/noto-sans 5.2.10, licencja OFL), a nie z Google Fonts,
+ * żeby sklep nie wysyłał adresów IP klientów do Google bez zgody. Tylko grubości 400 i 700,
+ * tak jak w źródle; przeglądarka zastąpi 500 i 600 najbliższą z nich. latin-ext ma polskie znaki. */
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/noto-sans-latin-400-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(../fonts/noto-sans-latin-ext-400-normal.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(../fonts/noto-sans-latin-700-normal.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(../fonts/noto-sans-latin-ext-700-normal.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* W theme.css Manrope jest ustawiony tylko na html i body, reszta dziedziczy. */
+html,
+body {
+  font-family: "Noto Sans", sans-serif;
+}
+
+/* ---- 6. Strona główna: obraz sklepu pod produktami (G1) ----
+ * Szablon ps_banner w Classic ma na stałe width="1110" height="213" (wymiary obrazu demo), więc nasz
+ * obraz 970 × 540 byłby rozciągnięty na całą szerokość. Jak w źródle: naturalna szerokość, przy lewej
+ * krawędzi, na węższych ekranach zmniejszony (img-fluid). */
+#index .banner img {
+  width: auto;
+  height: auto;
+}
+
+/* Menu pod tekstem na stronie głównej (ps_mainmenu w displayHome, deploy/config/uklad.php). Classic
+ * daje wielkie litery tylko menu w nagłówku, a w źródle oba są pisane wielkimi literami. */
+#wrapper .top-menu a[data-depth="0"] {
+  text-transform: uppercase;
+}
+
+/* ---- 7. Katalog produktów (kategoria główna, /2-katalog-produktow-gitara-no1) ----
+ * Nazwa i obrazek kategorii są w deploy/config/uklad.php (K0). W źródle nie ma bloku „Podkategorie”
+ * (są w drzewie w lewej kolumnie), więc tu go ukrywamy. */
+.category-id-2 #subcategories {
+  display: none;
+}
+
+/* Nagłówek kategorii i tytuł drzewa kategorii w rozmiarach z Classic 1.7, jak w źródle na wszystkich
+ * stronach kategorii (Classic 2.x: 32 px i 24 px, źródło: 22 px i 15 px pogrubione). Obrazek kategorii
+ * przy prawej krawędzi także wtedy, gdy kategoria nie ma opisu (w źródle spycha go opis). */
+.block-category .h1 {
+  font-size: 1.375rem;
+  line-height: 1.1;
+}
+
+.block-category .category-cover {
+  margin-left: auto;
+}
+
+.block-categories .category-top-menu > li > a.h6 {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+/* Strona główna: cień pod kafelkami „Popularnych produktów”, taki jak w źródle (Classic 1.7). */
+#index .product-miniature .thumbnail-container {
+  box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Tytuły sekcji z produktami („Popularne produkty”) pogrubione, jak w źródle (Classic 2.x: 500, 21 px).
+ * Selektory jak w theme.css z Classic, bo ta sama specyficzność wygrywa dzięki kolejności plików. */
+#products .products-section-title,
+.featured-products .products-section-title,
+.product-accessories .products-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+/* ---- 8. Stopka jak w źródle (Classic 1.7) ----
+ * Linki w „Twoje konto” są w szablonie modules/ps_customeraccountlinks (kopia z Classic), a kolejność
+ * stron w „Nasza firma” w deploy/config/cms.php. Tu tylko rozmiary i kolory. */
+
+/* Tytuły bloków z linkami („Produkty”, „Nasza firma”): w źródle 18 px, „Twoje konto” i „Informacja
+ * o sklepie” zostają 16 px. */
+@media (min-width: 768px) {
+  .footer-container .links .col-md-6.wrapper > .h3 {
+    font-size: 1.125rem;
+  }
+}
+
+/* „Informacja o sklepie”: tekst 16 px, telefon i e-mail szare jak reszta tekstu (Classic 2.x: 14 px,
+ * linki w kolorze głównym). Linki tel: i mailto: zostają klikalne. */
+.footer-container .block-contact {
+  font-size: 1rem;
+}
+
+.footer-container .block-contact a {
+  color: inherit;
+}
+
+.footer-container .block-contact a:hover {
+  color: #24b9d7;
+}
+
+/* Odstępy jak w źródle: stopka 20 px od góry (+ 20 px marginesu), tytuły bloków 8 px nad linkami
+ * (Classic 2.x: 40 px i 16 px). Na telefonie bloki są zwijane i zostają bez zmian. */
+@media (min-width: 768px) {
+  .footer-container {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+  }
+
+  .footer-container .links .h3,
+  .footer-container .myaccount-title,
+  .footer-container .block-contact-title {
+    margin-bottom: 0.5rem;
+  }
+}
