@@ -136,3 +136,18 @@ def test_check_file_reports_violations(tmp_path):
     assert result["errors"] == ["format PNG, a nie JPEG"]
     assert result["notes"] == ["małe: dłuższy bok < 800 px"]
     assert check_file(tmp_path / "brak.jpg")["errors"] == ["brak pliku"]
+
+
+def test_downloader_downloads_logo_once(tmp_path, responses):
+    logo_url = "https://gitara-sklep.pl/img/m/3.jpg"
+    responses[logo_url] = to_bytes(noisy_photo(200, 100), "PNG")
+    client = FakeClient(responses)
+
+    assert ImageDownloader(client, tmp_path).download_logo(logo_url) == "3.jpg"
+    assert Image.open(tmp_path / "3.jpg").format == "JPEG"
+
+    downloader = ImageDownloader(client, tmp_path)
+    assert downloader.download_logo(logo_url) == "3.jpg"
+    assert client.requested == [logo_url]  # drugie wywołanie bierze plik z dysku
+    assert downloader.stats == {"pominięte": 1}
+    assert ImageDownloader(client, tmp_path).download_logo(MISSING_URL) is None

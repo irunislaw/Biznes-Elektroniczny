@@ -28,6 +28,7 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 - `PAGES_CACHE_PATH` - katalog na pobrane karty produktów (`scraper-results/cache/`, w `.gitignore`),
 - `LOGGING_PATH` - katalog na logi,
 - `IMAGES_PATH` - katalog na zdjęcia (`scraper-results/images/`, w `.gitignore`),
+- `BRAND_LOGOS_PATH` - katalog na loga marek (`scraper-results/images/brands/`),
 - `IMAGE_MAX_SIDE_PX` (1600), `IMAGE_MAX_BYTES` (300 000 B), `IMAGE_MIN_SIDE_PX` (800) - limity zdjęć.
 
 ## Uruchomienie
@@ -35,7 +36,7 @@ Wszystkie polecenia uruchamiaj z katalogu `scraper/`
 
     python main.py             # produkty -> scraper-results/results.json
     python main.py --od-nowa   # wszystko od zera: ignoruje results.json i category-tree.json, czyści cache/
-    python download_images.py  # zdjęcia -> scraper-results/images/, ścieżki do results.json
+    python download_images.py  # zdjęcia i loga marek -> scraper-results/images/, ścieżki do results.json
     python check_images.py     # kontrola zdjęć 20 losowych produktów
 
 Pełny przebieg trwa ok. 12 minut (730,96 s przy 2 zapytaniach/s i 1288 adresach produktów).
@@ -98,6 +99,7 @@ i listą pozostałych (`other_category_ids`).
 | `description` | str | surowy HTML opisu ze sklepu |
 | `price_gross` | Decimal | cena regularna brutto (bez promocji) |
 | `sale_price_gross` | Decimal \| null | cena promocyjna brutto; `null`, gdy brak promocji |
+| `brand` | obiekt \| null | marka z karty produktu: `name` (str), `logo_url` (URL \| null), `logo_file` (str \| null, np. `images/brands/3.jpg`, uzupełnia `download_images.py`); `null`, gdy sklep nie podaje producenta |
 | `vat_rate_percent` | Decimal \| null | stawka VAT w %; patrz „Brakujące dane a import” |
 | `weight` | Decimal \| null | patrz „Brakujące dane a import” |
 | `attributes` | dict | patrz „Znane ograniczenia” |
@@ -136,6 +138,11 @@ zdjęcie i dopisuje przy produkcie `image_files`.
 - **Log** `scraper-results/images_RRRR-MM-DD_GG-MM-SS.log`: każde `GET`, wymiary przed i po
   skalowaniu, jakość i rozmiar, ostrzeżenie `Małe zdjęcie produktu <id>: <szer>x<wys>, dłuższy bok < 800 px (<url>)`
   oraz podsumowanie: liczba pobranych, pominiętych, błędów i małych zdjęć.
+
+- **Loga marek** trafiają do `scraper-results/images/brands/<id marki w sklepie źródłowym>.jpg`
+  (z adresu `img/m/<id>.jpg`), a ścieżka do `brand.logo_file`. Logo wspólne dla wielu produktów
+  jest pobierane raz, a już pobrane jest pomijane. Skalowanie jest takie samo jak dla zdjęć, ale małe
+  loga nie są zgłaszane w logu. Podsumowanie ma osobną linię `Loga marek: pobrane …`.
 
 Pełny zbiór nie trafia do repozytorium. W `scraper-results/przyklady/` jest 20 przykładowych
 zdjęć (tyle pozwala PDF) o tych samych nazwach co w `images/`.

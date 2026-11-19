@@ -16,7 +16,13 @@ WHERE id_cart = 0
 GROUP BY id_product
 HAVING COUNT(*) > 1;
 
+SELECT LOWER(TRIM(name)) AS marka, COUNT(*) AS ile
+FROM ps_manufacturer
+GROUP BY LOWER(TRIM(name))
+HAVING COUNT(*) > 1;
+
 SELECT (SELECT COUNT(*) FROM ps_product)  AS produkty,
        (SELECT COUNT(*) FROM ps_category) AS kategorie,
        (SELECT COUNT(*) FROM ps_image)    AS zdjecia,
-       (SELECT COUNT(*) FROM ps_specific_price) AS promocje;
+       (SELECT COUNT(*) FROM ps_specific_price) AS promocje,
+       (SELECT COUNT(*) FROM ps_manufacturer) AS marki;

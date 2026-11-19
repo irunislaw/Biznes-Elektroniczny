@@ -154,7 +154,12 @@ def create_category_xml(category, parent_id=config.HOME_CATEGORY_ID):
     return xml
 
 
-def create_product_xml(product, category_id, categories):
+def manufacturer_xml(id_manufacturer):
+    # Bez marki pole jest pomijane, więc ręcznie przypisany producent zostaje
+    return f"<id_manufacturer>{id_manufacturer}</id_manufacturer>" if id_manufacturer else ""
+
+
+def create_product_xml(product, category_id, categories, id_manufacturer=None):
     price_netto_quantized = net_price(product)
     tax_rules_group = config.TAX_RULES_GROUP_FOR_VAT_RATE[int(product["vat_rate_percent"])]
     categories_xml = "".join(f"<category><id>{c}</id></category>" for c in categories)
@@ -164,6 +169,7 @@ def create_product_xml(product, category_id, categories):
                 <id_category_default><![CDATA[{category_id}]]></id_category_default>
                 <id_tax_rules_group><![CDATA[{tax_rules_group}]]></id_tax_rules_group>
                 <reference><![CDATA[{product["id"]}]]></reference>
+                {manufacturer_xml(id_manufacturer)}
                 <state><![CDATA[1]]></state>
                 <product_type><![CDATA[standard]]></product_type>
                 <price><![CDATA[{price_netto_quantized}]]></price>
@@ -192,7 +198,7 @@ def create_product_xml(product, category_id, categories):
     return xml
 
 
-def create_product_update_xml(ps_product_id, product):
+def create_product_update_xml(ps_product_id, product, id_manufacturer=None):
     tax_rules_group = config.TAX_RULES_GROUP_FOR_VAT_RATE[int(product["vat_rate_percent"])]
     return f"""
         <prestashop>
@@ -200,6 +206,7 @@ def create_product_update_xml(ps_product_id, product):
                 <id>{ps_product_id}</id>
                 <id_tax_rules_group><![CDATA[{tax_rules_group}]]></id_tax_rules_group>
                 <price><![CDATA[{net_price(product)}]]></price>
+                {manufacturer_xml(id_manufacturer)}
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
                 </description>
@@ -236,19 +243,20 @@ def net_price(product):
     return (gross / (1 + vat / 100)).quantize(Decimal("0.000001"))
 
 
-def update_product(ps_product_id, product):
-    xml = create_product_update_xml(ps_product_id, product)
+def update_product(ps_product_id, product, id_manufacturer=None):
+    xml = create_product_update_xml(ps_product_id, product, id_manufacturer)
     api_patch(f"products/{ps_product_id}", xml)
 
 
-def add_products(products, products_in_database, category_id_map, category_parent_map):
+def add_products(products, products_in_database, category_id_map, category_parent_map, manufacturer_id_map):
     products_id_map = {}
     added = updated = rejected = 0
     for i, product in enumerate(products, 1):
+        id_manufacturer = manufacturer_id_map.get(brand_key(product_brand(product)[0]))
         if str(product["id"]) in products_in_database:
             try:
                 product_id = products_in_database[str(product["id"])]
-                update_product(product_id, product)
+                update_product(product_id, product, id_manufacturer)
                 updated += 1
             except (requests.RequestException, KeyError, ValueError, TypeError) as e:
                 logger.error("Nie zaktualizowano produktu %d: %s", product["id"], e)
@@ -269,7 +277,7 @@ def add_products(products, products_in_database, category_id_map, category_paren
 
             try:
                 default_id = category_id_map[product["id_category_default"]]
-                product_id = add_product(product, default_id, categories)
+                product_id = add_product(product, default_id, categories, id_manufacturer)
                 added += 1
             except (requests.RequestException, KeyError, ValueError, TypeError) as e:
                 logger.error("Nie dodano produktu: %d. Powód: %s", product["id"], e)
@@ -283,8 +291,8 @@ def add_products(products, products_in_database, category_id_map, category_paren
     return products_id_map, added, updated, rejected
 
 
-def add_product(product, category_id, categories):
-    xml = create_product_xml(product, category_id, categories)
+def add_product(product, category_id, categories, id_manufacturer=None):
+    xml = create_product_xml(product, category_id, categories, id_manufacturer)
     response = api_post("products", xml)
 
     product_id = response["product"]["id"]
@@ -465,6 +473,134 @@ def set_promotions(products, product_id_map):
     return counter
 
 
+def normalize_brand_name(name):
+    """Pojedyncze spacje, bez spacji na brzegach: " Harley  Benton " -> "Harley Benton"."""
+    return " ".join(name.split())
+
+
+def brand_key(name):
+    """Klucz porównania marek bez względu na wielkość liter, więc "Bosch" i "BOSCH " to jeden producent."""
+    return normalize_brand_name(name).casefold() if name else None
+
+
+def product_brand(product):
+    """(nazwa marki, źródło): "source" z results.json, "mapping" z config.py albo (None, None)."""
+    brand = product.get("brand")
+    if brand and normalize_brand_name(brand["name"]):
+        return normalize_brand_name(brand["name"]), "source"
+    name = config.BRAND_BY_PRODUCT_ID.get(product["id"]) or config.BRAND_BY_CATEGORY_ID.get(
+        product["id_category_default"]
+    )
+    if name:
+        return normalize_brand_name(name), "mapping"
+    return None, None
+
+
+def collect_brands(products):
+    """Klucz marki -> (nazwa do wyświetlenia, plik logo albo None); pierwsza napotkana pisownia wygrywa."""
+    brands = {}
+    for product in products:
+        name, _ = product_brand(product)
+        if not name:
+            continue
+        logo_file = (product.get("brand") or {}).get("logo_file")
+        key = brand_key(name)
+        if key not in brands:
+            brands[key] = (name, logo_file)
+        elif logo_file and not brands[key][1]:
+            brands[key] = (brands[key][0], logo_file)
+    return brands
+
+
+def create_manufacturer_xml(name):
+    return f"""
+        <prestashop>
+            <manufacturer>
+                <active>1</active>
+                <name><![CDATA[{name}]]></name>
+            </manufacturer>
+        </prestashop>
+    """
+
+
+def get_manufacturers_with_logo():
+    response = requests.get(
+        config.API_URL + "/images/manufacturers", auth=config.LOGIN, verify=False, timeout=config.TIMEOUT
+    )
+    response.raise_for_status()
+    return {int(el.get("id")) for el in ET.fromstring(response.content).findall("images/image")}
+
+
+def add_manufacturer_logo(id_manufacturer, logo_file):
+    with open(config.SCRAPER_RESULTS_PATH / logo_file, "rb") as image:
+        response = requests.post(
+            config.API_URL + "/images/manufacturers/" + str(id_manufacturer),
+            auth=config.LOGIN,
+            files={"image": ("logo.jpg", image, "image/jpeg")},
+            verify=False,
+            timeout=config.TIMEOUT,
+        )
+        response.raise_for_status()
+
+
+def add_manufacturers(products):
+    """Tworzy brakujących producentów i wgrywa loga; zwraca (klucz marki -> id producenta, liczniki).
+
+    Istniejący producent jest rozpoznawany po nazwie (bez względu na spacje i wielkość liter),
+    a logo jest wgrywane tylko producentowi, który jeszcze go nie ma.
+    """
+    counter = {"added": 0, "existing": 0, "rejected": 0, "logos": 0}
+    existing = (api_get("manufacturers", {"display": "[id,name]"}) or {}).get("manufacturers", [])
+    manufacturers_in_database = {brand_key(m["name"]): int(m["id"]) for m in existing}
+    with_logo = get_manufacturers_with_logo()
+
+    manufacturer_id_map = {}
+    for key, (name, logo_file) in collect_brands(products).items():
+        try:
+            if key in manufacturers_in_database:
+                id_manufacturer = manufacturers_in_database[key]
+                counter["existing"] += 1
+            else:
+                response = api_post("manufacturers", create_manufacturer_xml(name))
+                id_manufacturer = int(response["manufacturer"]["id"])
+                counter["added"] += 1
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie dodano marki %s: %s", name, e)
+            counter["rejected"] += 1
+            continue
+
+        manufacturer_id_map[key] = id_manufacturer
+        if logo_file and id_manufacturer not in with_logo:
+            try:
+                add_manufacturer_logo(id_manufacturer, logo_file)
+                counter["logos"] += 1
+            except (requests.RequestException, OSError) as e:
+                logger.error("Nie wgrano logo marki %s: %s", name, e)
+
+    return manufacturer_id_map, counter
+
+
+def clear_manufacturers(manufacturer_id_map):
+    """Usuwa producentów spoza importu (marki demo, np. Studio Design)."""
+    imported = set(manufacturer_id_map.values())
+    deleted = 0
+    for manufacturer in (api_get("manufacturers") or {}).get("manufacturers", []):
+        if int(manufacturer["id"]) not in imported:
+            api_delete(f"manufacturers/{manufacturer['id']}")
+            deleted += 1
+    logger.info("Usunięto %d marek spoza importu", deleted)
+
+
+def count_brand_assignments(products, product_id_map, manufacturer_id_map):
+    counter = {"source": 0, "mapping": 0, "none": 0}
+    for product in products:
+        if product["id"] not in product_id_map:
+            continue
+        name, origin = product_brand(product)
+        counter[origin if brand_key(name) in manufacturer_id_map else "none"] += 1
+    return counter
+
+
 def add_image(product_id, image_path):
     with open(config.SCRAPER_RESULTS_PATH / image_path, "rb") as image:
         response = requests.post(
@@ -581,11 +717,14 @@ def main():
         products_display = get_products({"display": "[id,reference]"})
         products_in_database = {p["reference"]: int(p["id"]) for p in products_display}
 
+        manufacturer_id_map, brand_counter = add_manufacturers(products)
         product_id_map, added, updated, rejected = add_products(
-            products, products_in_database, category_id_map, category_parent_map
+            products, products_in_database, category_id_map, category_parent_map, manufacturer_id_map
         )
 
         clear_sample_data(category_id_map, product_id_map)
+        clear_manufacturers(manufacturer_id_map)
+        assignments = count_brand_assignments(products, product_id_map, manufacturer_id_map)
         promo_counter = set_promotions(products, product_id_map)
         add_images(products, product_id_map)
         set_stocks(products, product_id_map)
@@ -604,6 +743,19 @@ def main():
         promo_counter["updated"],
         promo_counter["deleted"],
         promo_counter["rejected"],
+    )
+    logger.info(
+        "Marki: utworzono %d, istniejące %d, odrzucono %d, wgrane loga %d",
+        brand_counter["added"],
+        brand_counter["existing"],
+        brand_counter["rejected"],
+        brand_counter["logos"],
+    )
+    logger.info(
+        "Produkty z marką: ze źródła %d, z mapowania %d, bez marki %d",
+        assignments["source"],
+        assignments["mapping"],
+        assignments["none"],
     )
     logger.info("Czas importu: %.2fs", end_time - start_time)
 

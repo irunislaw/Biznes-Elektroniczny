@@ -1,6 +1,8 @@
 import io
 import logging
 import os
+from pathlib import PurePosixPath
+from urllib.parse import urlsplit
 from collections import Counter
 from dataclasses import dataclass
 
@@ -103,29 +105,43 @@ class ImageDownloader:
                 files.append(path.name)
                 continue
 
-            response = self.client.get(url)
-            if response is None:
-                self.stats["błędy"] += 1
-                continue
-
-            try:
-                resized = resize_image(response.content)
-            except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
-                self.stats["błędy"] += 1
-                logger.warning("Nie udało się odczytać zdjęcia %s: %s", url, e)
-                continue
-
-            write_atomic(path, resized.data)
-            self.stats["pobrane"] += 1
-            self.log_if_small(product_id, url, resized.original_size)
-            logger.info(
-                "Zapisano %s: %dx%d -> %dx%d, jakość %d, %.1f KB",
-                path.name,
-                *resized.original_size,
-                *resized.size,
-                resized.quality,
-                len(resized.data) / 1024,
-            )
-            files.append(path.name)
+            if self.fetch(url, path, product_id):
+                files.append(path.name)
 
         return files
+
+    def fetch(self, url, path, owner):
+        """Pobiera, skaluje i zapisuje jeden obraz; owner to id produktu albo marki w logu. False przy błędzie."""
+        response = self.client.get(url)
+        if response is None:
+            self.stats["błędy"] += 1
+            return False
+
+        try:
+            resized = resize_image(response.content)
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
+            self.stats["błędy"] += 1
+            logger.warning("Nie udało się odczytać zdjęcia %s: %s", url, e)
+            return False
+
+        write_atomic(path, resized.data)
+        self.stats["pobrane"] += 1
+        self.log_if_small(owner, url, resized.original_size)
+        logger.info(
+            "Zapisano %s: %dx%d -> %dx%d, jakość %d, %.1f KB",
+            path.name,
+            *resized.original_size,
+            *resized.size,
+            resized.quality,
+            len(resized.data) / 1024,
+        )
+        return True
+
+    def download_logo(self, url):
+        """Logo marki jako <nazwa z adresu>.jpg, np. img/m/3.jpg -> 3.jpg; None, gdy się nie pobrało."""
+        url = str(url)
+        path = self.images_dir / (PurePosixPath(urlsplit(url).path).stem + ".jpg")
+        if path.exists():
+            self.stats["pominięte"] += 1
+            return path.name
+        return path.name if self.fetch(url, path, path.stem) else None
