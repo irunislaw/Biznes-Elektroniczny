@@ -77,9 +77,18 @@ krok "4/5 Domena, SSL i administrator z .env"
 sklep php /opt/dane/dopasuj.php
 
 krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
-# Motyw włącza theme.php, pierwszy w pętli, bo przy przełączaniu motywu PrestaShop zapisuje od nowa
-# hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
-for skrypt in theme locale taxes payments carriers mail cookies cms uklad; do
+# Świeża kopia modułów z repozytorium przy każdym make init.
+for modul in becookiebanner beomnibus; do
+    sklep rm -rf "/var/www/html/modules/$modul"
+    $COMPOSE cp "shop/modules/$modul" "prestashop:/var/www/html/modules/$modul"
+    sklep chown -R www-data:www-data "/var/www/html/modules/$modul"
+done
+# To samo dla motywu potomnego. Włącza go theme.php, pierwszy w pętli, bo przy przełączaniu motywu
+# PrestaShop zapisuje od nowa hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
+sklep rm -rf /var/www/html/themes/gitara
+$COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
+sklep chown -R www-data:www-data /var/www/html/themes/gitara
+for skrypt in theme locale taxes payments carriers mail cookies omnibus cms uklad; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
 szablony_maili

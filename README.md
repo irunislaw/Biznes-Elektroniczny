@@ -43,7 +43,8 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
 3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
-5. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+5. kopiuje moduły [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i [`shop/modules/beomnibus`](shop/modules/beomnibus/) (najniższa cena z 30 dni, [Omnibus](#omnibus-najniższa-cena-z-30-dni)) oraz motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułów i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+6. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
@@ -111,6 +112,13 @@ Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`pare
 
 `theme.yml` ma celowo tylko typy miniatur (identyczne jak w Classic) i układy stron. Włączenie motywu w PrestaShop zastępuje typy miniatur listą z motywu, a sekcja `hooks` przepięłaby moduły według swojej listy i odpięła np. `becookiebanner`.
 
+## Omnibus: najniższa cena z 30 dni
+Przy każdym produkcie w promocji sklep pokazuje „Najniższa cena z 30 dni przed obniżką: …” (dyrektywa Omnibus): na karcie produktu pod ceną, na listach produktów i w koszyku. Robi to własny moduł [`shop/modules/beomnibus`](shop/modules/beomnibus/beomnibus.php), który `make init` instaluje skryptem [`deploy/config/omnibus.php`](deploy/config/omnibus.php). PrestaShop 8.2 nie ma tego w standardzie, a gotowe moduły są płatne albo spoza repozytorium.
+
+- **Historia cen**: tabela `ps_beomnibus_price` (produkt, cena końcowa brutto z promocją, data). Pierwszy wpis to cena w chwili instalacji modułu. Kolejne dopisują hooki `actionObjectProduct…After` i `actionObjectSpecificPrice…After`, czyli każda zmiana produktu albo promocji w panelu, w imporcie i w innym kodzie, ale tylko gdy cena się zmieniła. Historia jest w bazie, więc trafia do zrzutu (`make zrzut`).
+- **Wyliczenie**: początek obecnej obniżki to chwila, od której w historii obowiązuje obecna cena. Wynik to najniższa cena z 30 dni przed tą chwilą (także cena, która obowiązywała na początku tych 30 dni). Gdy sprzed obniżki nie ma żadnego wpisu, wynikiem jest cena regularna. Tak jest dziś przy wszystkich 302 promocjach, bo promocje powstały razem z produktami przy imporcie.
+- **Ograniczenia**: historia jest dla produktu (domyślnego wariantu), bo warianty nie zmieniają ceny. Promocja z datą początku w przyszłości zostanie zapisana dopiero przy następnej zmianie produktu albo promocji (moduł nie ma zadania cron), a ceny dla grup klientów nie są brane pod uwagę.
+
 `make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
 
 # Scraper
@@ -134,7 +142,10 @@ Po uruchomieniu kontenerów wykonaj w katalogu głównym repozytorium:
 make test
 ```
 
-Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybie headless. Komenda kończy się po zapisaniu wyników.
+Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybie headless. Komenda kończy się po zapisaniu wyników. Testy:
+
+- [`tests/tests/e2eTests.spec.ts`](tests/tests/e2eTests.spec.ts) - pełny zakup: koszyk, wyszukiwanie, rejestracja, zamówienie z płatnością przy odbiorze, historia zamówień i faktura VAT,
+- [`tests/tests/omnibus.spec.ts`](tests/tests/omnibus.spec.ts) - informacja o najniższej cenie z 30 dni: jest przy każdym produkcie na liście „Promocje” i na karcie produktu w promocji, a nie ma jej przy produkcie bez promocji.
 
 - Raport HTML znajdzie się w `tests/playwright-report/index.html`. 
   - Aby go obejrzeć, uruchom `make raport` i wejdź na [http://localhost:9323](http://localhost:9323). 
