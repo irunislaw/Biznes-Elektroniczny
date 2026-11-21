@@ -56,12 +56,12 @@ def main(save_results=True):
             save_products(config.SAVE_PRODUCTS_PATH, products)
         stats = downloader.stats
         logger.info(
-            "Koniec: pobrane %d, pominięte (już były) %d, błędy %d, małe (< %d px) %d",
+            "Koniec: pobrane %d, pominięte (już były) %d, błędy %d, powiększone (dłuższy bok < %d px) %d",
             stats["pobrane"],
             stats["pominięte"],
             stats["błędy"],
             config.IMAGE_MIN_SIDE_PX,
-            stats["małe"],
+            stats["powiększone"],
         )
 
 
