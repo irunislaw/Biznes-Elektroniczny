@@ -16,7 +16,7 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
    - panel administracyjny: https://localhost:8443/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
    - Mailpit: http://localhost:8025
 
-`make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
+`make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera. Klientów i zamówienia można przed tym zachować w kopii zapasowej ([`make backup`](#kopia-zapasowa)).
 
 ## Czas uruchomienia
 Pomiar od `git clone` do działającego sklepu z pełnymi danymi: `git clone`, `cp .env.example .env`, `make up`, `make init`. Limit: 15 min, cel: ≤10 min.
@@ -39,11 +39,12 @@ Releases to zakładka GitHuba z plikami do pobrania przypiętymi do tagu. Adres 
 
 ## Co robi `make init`
 Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
-1. czeka, aż instalator PrestaShop skończy pracę,
+1. czeka, aż instalator PrestaShop skończy pracę, i kopiuje do sklepu moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i motyw [`shop/themes/gitara`](shop/themes/gitara/). Robi to przed wczytaniem zrzutu, bo PrestaShop nie uruchamia się, gdy baza ma włączony motyw, którego plików nie ma,
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
 3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
 5. kopiuje moduły [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i [`shop/modules/beomnibus`](shop/modules/beomnibus/) (najniższa cena z 30 dni, [Omnibus](#omnibus-najniższa-cena-z-30-dni)) oraz motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułów i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+6. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
@@ -87,6 +88,25 @@ Co zrzut pomija ([`baza.sh`](deploy/dane/baza.sh), lista `BEZ_DANYCH`):
 
 Na koniec skrypt sprawdza, czy w zrzucie nie ma żadnego klucza Webservice ani e-maila pracownika lub klienta ze sklepu. Jeśli jest, usuwa zrzut i kończy się błędem.
 
+# Kopia zapasowa
+`make backup` zapisuje kopię działającego sklepu do `backups/sklep-<data>_<godzina>.tar`: pełny zrzut bazy (z klientami i zamówieniami), zdjęcia z `img/` i pliki konfiguracyjne sklepu. `make restore PLIK=backups/...` odtwarza z niej sklep na czystym środowisku po `make up`: wczytuje bazę i zdjęcia, ustawia domenę z `.env` i czyści cache. `make init` nie jest wtedy potrzebny.
+
+```bash
+make backup
+make reset
+make up
+make restore PLIK=backups/sklep-2026-11-19_231958.tar
+```
+
+**Kopia nigdy nie trafia do repozytorium**, bo ma dane osobowe klientów, hasła i klucze sklepu. `backups/` jest w `.gitignore`. Zawartość kopii, sposób odtwarzania i różnica między kopią a eksportem ustawień w [`deploy/config/`](deploy/config/) są w [docs/backup.md](docs/backup.md).
+
+## Czas odtworzenia
+Pomiar od `make reset` do działającego sklepu z kopii: `make reset`, `make up`, `make restore`. Kopia z pełnymi danymi i jednym zamówieniem, 1,3 GB.
+
+| Osoba | System | Obrazy Dockera pobrane wcześniej? | `make reset` | `make up` | `make restore` | Razem |
+|---|---|---|---|---|---|---|
+| Michał Irek | Windows 11, Docker Desktop | tak | 7 s | 23 s | 134 s | 164 s (2 min 44 s) |
+
 # Wygląd sklepu
 Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`parent: classic` w `config/theme.yml`). Szablony, JS i CSS dziedziczy po Classic, a własne style są w [`assets/css/custom.css`](shop/themes/gitara/assets/css/custom.css), ładowanym po CSS Classic. `make init` kopiuje motyw do sklepu i włącza go skryptem [`deploy/config/theme.php`](deploy/config/theme.php), więc nie trzeba niczego klikać w panelu. Po zmianie CSS wystarczy `make init`. Plików motywu w kontenerze nie warto edytować, bo następne `make init` je nadpisze.
 
@@ -109,7 +129,7 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
 
 # Import
-Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
+Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia, promocje i stany magazynowe z wyników scrapera oraz warianty produktów z [`deploy/import/config.py`](deploy/import/config.py) (`VARIANTS`) przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
 
 - uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
 
