@@ -103,6 +103,17 @@ if ($wishlist && Module::isEnabled('blockwishlist') && !$wishlist->disable()) {
     throw new RuntimeException('Nie udalo sie wylaczyc blockwishlist');
 }
 
+// P1: wyłącznie modułu blockreassurance z tekstem demo
+if (Module::isEnabled('blockreassurance')) {
+    $reassurance = Module::getInstanceByName('blockreassurance');
+
+    if (!$reassurance || !$reassurance->disable()) {
+        throw new RuntimeException(
+            'Nie udalo sie wylaczyc blockreassurance'
+        );
+    }
+}
+
 // Logo sklepu zamiast „my store” (roznice.md, sekcja 8). Maile i faktury biorą PS_LOGO, gdy nie mają własnego.
 $plikLogo = 'gitara-logo.png';
 skopiuj($obrazy . 'logo.png', _PS_IMG_DIR_ . $plikLogo);
