@@ -32,7 +32,7 @@ scraper-results/images/
 *.tar.gz
 *.tar
 
-# Kopie zapasowe
+# Kopie zapasowe sklepu (make backup): dane osobowe klientów, hasła i klucze, nigdy do repozytorium
 backups/
 
 # Logi
