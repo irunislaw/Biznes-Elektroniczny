@@ -180,6 +180,9 @@ def create_product_xml(product, category_id, categories):
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
                 </description>
+                <description_short>
+                    <language id="1"><![CDATA[{product.get("description_short") or ""}]]></language>
+                </description_short>
                 <associations>
                     <categories>
                     {categories_xml}
@@ -204,6 +207,9 @@ def create_product_update_xml(ps_product_id, product):
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
                 </description>
+                <description_short>
+                    <language id="1"><![CDATA[{product.get("description_short") or ""}]]></language>
+                </description_short>
                 <weight><![CDATA[{product.get("weight") or 0}]]></weight>
             </product>
         </prestashop>

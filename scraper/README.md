@@ -38,6 +38,7 @@ Wszystkie polecenia uruchamiaj z katalogu `scraper/`
     python main.py --od-nowa   # wszystko od zera: ignoruje results.json i category-tree.json, czyści cache/
     python download_images.py  # zdjęcia -> scraper-results/images/, ścieżki do results.json
     python check_images.py     # kontrola zdjęć 20 losowych produktów
+    python uzupelnij_opisy.py  # krótki opis produktom zapisanym w results.json (patrz „Krótki opis”)
 
 Pełny przebieg trwa ok. 12 minut (730,96 s przy 2 zapytaniach/s i 1288 adresach produktów).
 Czas zależy od liczby produktów i ponowień.
@@ -52,7 +53,8 @@ zapisanych w `results.json`, ani żadnej karty produktu, która jest już na dys
 - Każda pobrana karta produktu (HTML) trafia do `scraper-results/cache/<id produktu>.html`,
   też przez plik tymczasowy. Kolejne uruchomienie bierze ją z dysku zamiast ze sklepu – także
   karty produktów pominiętych (kategoria poza drzewem) i odrzuconych przez walidację, których
-  nie ma w `results.json`. Nieudane pobranie nie trafia na dysk, więc następnym razem jest
+  nie ma w `results.json`. Nieudane pobranie i odpowiedź z pustą treścią (sklep potrafi
+  odpowiedzieć tak kodem 200) nie trafiają na dysk, więc następnym razem są
   ponawiane. Katalog jest w `.gitignore`. Podsumowanie w logu pokazuje,
   ile kart wzięto z dysku, a ile pobrano, np. drugie uruchomienie po pełnym przebiegu:
 
@@ -97,6 +99,7 @@ i listą pozostałych (`other_category_ids`).
 | `id` | int | id produktu w sklepie |
 | `name` | str | |
 | `description` | str | surowy HTML opisu ze sklepu |
+| `description_short` | str | surowy HTML krótkiego opisu (na karcie produktu pod ceną); pusty, gdy sklep go nie ma; patrz „Krótki opis” |
 | `price_gross` | Decimal | cena regularna brutto (bez promocji) |
 | `sale_price_gross` | Decimal \| null | cena promocyjna brutto; `null`, gdy brak promocji |
 | `vat_rate_percent` | Decimal \| null | stawka VAT w %; patrz „Brakujące dane a import” |
@@ -117,6 +120,24 @@ Brak stawki VAT lub wagi jest zapisywany jako `null`. Import przyjmuje wtedy:
 
 W ostatnim przebiegu VAT miały wszystkie produkty (23% – 1119, 5% – 5),
 a wagi nie miał żaden, bo sklep jej nie publikuje.
+
+## Krótki opis
+`parse_product` zbiera krótki opis (`description_short` z `data-product`), czyli tekst, który
+sklep pokazuje na karcie produktu pod ceną, osobno od pełnego opisu. `results.json`
+w repozytorium powstał wcześniej, więc pole uzupełnia osobny skrypt:
+
+    python uzupelnij_opisy.py
+
+- Pobiera karty tylko tych produktów, które już są w `results.json`, tym samym `ShopClient`
+  (User-Agent, `robots.txt`, ≤2 zapytania/s), i zmienia w nich tylko `description_short`.
+  Ceny, promocje, zdjęcia i zbiór produktów zostają bez zmian. `python main.py --od-nowa`
+  też zebrałby krótki opis, ale zmieniłby przy okazji pozostałe dane, a za nimi zdjęcia i zrzut sklepu.
+- Karty idą przez `CachedClient`, więc po przerwaniu (Ctrl+C) kolejne uruchomienie nie pobiera
+  ich drugi raz. `results.json` jest zapisywany na końcu, także po Ctrl+C.
+- Karta, której nie udało się pobrać, bez danych produktu albo z innym id produktu jest
+  logowana i pomijana, a krótki opis tego produktu zostaje bez zmian.
+- Log: `scraper-results/opisy_RRRR-MM-DD_GG-MM-SS.log`. Na końcu jest liczba produktów
+  z krótkim opisem, bez niego i nieudanych oraz ile kart wzięto z dysku, a ile pobrano.
 
 ## Zdjęcia
 `download_images.py` czyta `results.json`, pobiera każdy adres z `image_urls` tym samym
@@ -223,9 +244,12 @@ oraz pól, których prawdziwe strony sklepu nie mają.
 `test_resume.py` używa tego samego sztucznego klienta (`tests/conftest.py`) i stron z `fixtures/`:
 symuluje Ctrl+C przy 3. produkcie i sprawdza, że wznowienie pobiera tylko brakującą kartę,
 że zapis idzie po każdej paczce i że `--od-nowa` zaczyna od pustej listy.
-Trzy kolejne testy sprawdzają cache kart (`CachedClient`): drugie uruchomienie na tych samych
+Kolejne testy sprawdzają cache kart (`CachedClient`): drugie uruchomienie na tych samych
 adresach nie wysyła żadnego zapytania (także o kartę pominiętą), `--od-nowa` czyści cache
-(także pliki `.tmp`) i pobiera wszystko od nowa, a nieudane pobranie nie trafia na dysk.
+(także pliki `.tmp`) i pobiera wszystko od nowa, a nieudane pobranie i pusta odpowiedź nie trafiają na dysk.
+`test_short_descriptions.py` sprawdza `uzupelnij_opisy.py`: stary `results.json` bez pola
+wczytuje się z pustym krótkim opisem, skrypt zmienia tylko `description_short` (zapisana cena
+zostaje), a brak karty, karta innego produktu i strona bez `data-product` nie zmieniają produktu.
 
 ## Znane ograniczenia
  
