@@ -132,7 +132,7 @@ więc wybór zmieniony w panelu (Katalog > Produkty > Powiązania) zostaje. Impo
 kategorii produktów, więc przypisanie zostaje też po ponownym imporcie. Te same produkty widać na stronie
 „Katalog produktów”.
 
-Logo i obraz sklepu są w motywie (`shop/themes/gitara/assets/logo.png` i `baner.jpg`). `uklad.php` kopiuje
+Logo i obraz sklepu są w motywie (`shop/themes/gitara/assets/logo.png` i `baner.webp`). `uklad.php` kopiuje
 je tam, gdzie szuka ich PrestaShop (`img/` i katalog `ps_banner`). Żeby je podmienić, wystarczy zamienić pliki
 i uruchomić `make init`.
 

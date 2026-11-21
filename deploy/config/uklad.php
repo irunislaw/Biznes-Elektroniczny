@@ -122,12 +122,12 @@ foreach (['ps_specials', 'ps_newproducts', 'ps_bestsellers'] as $nazwa) {
 }
 
 // Obraz ps_banner zamiast demo „20% OFF ON CLOTHES”. Bez linku moduł prowadzi na stronę główną.
-$plikBanera = 'gitara-baner.jpg';
+$plikBanera = 'gitara-baner.webp';
 $baner = Module::getInstanceByName('ps_banner');
 if (!$baner) {
     throw new RuntimeException('Brak modulu ps_banner');
 }
-skopiuj($obrazy . 'baner.jpg', _PS_MODULE_DIR_ . 'ps_banner/img/' . $plikBanera);
+skopiuj($obrazy . 'baner.webp', _PS_MODULE_DIR_ . 'ps_banner/img/' . $plikBanera);
 foreach (Language::getIDs(false) as $idJezyka) {
     if (Configuration::get('BANNER_IMG', $idJezyka) !== $plikBanera) {
         Configuration::updateValue('BANNER_IMG', [$idJezyka => $plikBanera]);

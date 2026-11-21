@@ -5,21 +5,21 @@
 // Puste title i text oznaczają sam obraz, jak w źródle.
 $slides = [
     'dunlop' => [
-        'image' => 'slide_dunlop.jpg',
+        'image' => 'slide_dunlop.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Produkty marki Dunlop',
         'category_id' => 16, //tymczasowo link do akcesoriów do ukulele
     ],
     'hohner' => [
-        'image' => 'slide_hohner.jpg',
+        'image' => 'slide_hohner.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Harmonijki i instrumenty marki Hohner',
         'category_id' => 55, // Harmonijki ustne.
     ],
     'tc_electronic' => [
-        'image' => 'slide_tc_electrionic.jpg',
+        'image' => 'slide_tc_electrionic.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Produkty marki tc electronic',
