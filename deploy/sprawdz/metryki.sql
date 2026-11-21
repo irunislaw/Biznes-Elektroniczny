@@ -77,6 +77,7 @@ SELECT
 FROM ps_stock_available;
 
 -- Metryka 4B: Produkty niedostepne: produkty ze stanem 0 (5-20%)
+-- Stan produktu z wariantami to w PrestaShop suma wariantow, wiec jest 0, gdy kazdy wariant ma 0
 SELECT
     SUM(quantity = 0) AS produkty_ze_stanem_0,
     COUNT(*) AS produkty,
@@ -84,3 +85,14 @@ SELECT
     IF(100 * AVG(quantity = 0) BETWEEN 5 AND 20, 'OK', 'BŁĄD') AS status
 FROM ps_stock_available
 WHERE id_product_attribute = 0;
+
+-- Metryka 4C: Warianty: sa w sklepie, a stan kazdego wariantu jest od 0 do 10
+SELECT
+    COUNT(DISTINCT id_product) AS produkty_z_wariantami,
+    COUNT(*) AS warianty,
+    SUM(quantity = 0) AS warianty_ze_stanem_0,
+    MIN(quantity) AS najnizszy_stan,
+    MAX(quantity) AS najwyzszy_stan,
+    IF(COUNT(*) > 0 AND MIN(quantity) >= 0 AND MAX(quantity) <= 10, 'OK', 'BŁĄD') AS status
+FROM ps_stock_available
+WHERE id_product_attribute > 0;
