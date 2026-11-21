@@ -30,7 +30,7 @@ Uprawnienia ustawia `deploy/import/init_webservice.php` przy `make init`. Plik j
 
 ## Co robi skrypt
 - **Kategorie**: odtwarza drzewo kategorii i podkategorii ze sklepu źródłowego pod kategorią „Strona główna”.
-- **Produkty**: nazwa, opis, przyjazny URL, grupa reguł VAT (23/8/5/0%) i cena netto = brutto / (1 + VAT), zaokrąglona do 6 miejsc po przecinku. W polu `reference` jest identyfikator produktu ze sklepu źródłowego. Waga jest brana z pola `weight`; scraper jej nie zbiera (`null`), więc obecnie wynosi 0.
+- **Produkty**: nazwa, opis, krótki opis (`description_short`, na karcie produktu pod ceną), przyjazny URL, grupa reguł VAT (23/8/5/0%) i cena netto = brutto / (1 + VAT), zaokrąglona do 6 miejsc po przecinku. W polu `reference` jest identyfikator produktu ze sklepu źródłowego. Waga jest brana z pola `weight`; scraper jej nie zbiera (`null`), więc obecnie wynosi 0. PrestaShop przyjmuje krótki opis do 800 znaków tekstu bez HTML (`PS_PRODUCT_SHORT_DESC_LIMIT`). Dłuższy API odrzuca kodem 400, a cały produkt trafia do logu jako odrzucony.
 - **Przypisanie do kategorii**: produkt trafia do swojej podkategorii i do wszystkich kategorii nadrzędnych, więc żadna kategoria nie jest pusta.
 - **Dane demo**: instalatora w obrazie nie da się uruchomić bez produktów i kategorii demo, dlatego usuwa je skrypt. Kasuje wszystko, czego nie ma w imporcie.
 - **Zdjęcia**: wysyłane z lokalnych plików scrapera, w kilku wątkach równolegle (`MAX_WORKERS`).
@@ -43,7 +43,7 @@ Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
 ## Ponowne uruchomienie
 Import można bezpiecznie uruchomić kilka razy:
 - **Kategorie** są rozpoznawane po kategorii nadrzędnej i `link_rewrite` (pochodzi z adresu kategorii w sklepie źródłowym). Używamy `link_rewrite` zamiast nazwy, bo jest unikalny w obrębie rodzica i nie zmienia się, gdy w sklepie źródłowym zmieni się wyświetlana nazwa. Istniejącej kategorii aktualizowana jest nazwa.
-- **Produkty** są rozpoznawane po `reference` (identyfikator ze sklepu źródłowego). Istniejącemu produktowi aktualizowane są cena, opis i waga. Stan magazynowy jest ustawiany przy każdym przebiegu.
+- **Produkty** są rozpoznawane po `reference` (identyfikator ze sklepu źródłowego). Istniejącemu produktowi aktualizowane są cena, opis, krótki opis i waga. Stan magazynowy jest ustawiany przy każdym przebiegu.
 - **Zdjęcia** są wysyłane tylko produktom, które jeszcze nie mają żadnego zdjęcia, więc się nie dublują.
 - **Promocje** są rozpoznawane po produkcie (`id_product`). Istniejącej promocji aktualizowana jest wysokość obniżki, a promocja produktu, który w sklepie źródłowym nie ma już ceny promocyjnej, jest usuwana.
 
