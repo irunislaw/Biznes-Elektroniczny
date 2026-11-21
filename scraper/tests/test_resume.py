@@ -149,3 +149,16 @@ def test_failed_download_is_not_cached(tmp_path, responses):
     CachedClient(shop, cache_dir).get(KABEL)
     assert shop.requested == [KABEL]  # więc kolejne uruchomienie próbuje jeszcze raz
     assert [file.name for file in cache_dir.iterdir()] == ["3916.html"]
+
+
+def test_empty_page_is_not_cached(tmp_path, responses):
+    cache_dir = tmp_path / "cache"
+
+    # Odpowiedź 200 z pustą treścią (tak odpowiadał sklep 2026-11-21)
+    CachedClient(FakeClient({KABEL: b""}), cache_dir).get(KABEL)
+    assert list(cache_dir.iterdir()) == []
+
+    shop = FakeClient(responses)
+    CachedClient(shop, cache_dir).get(KABEL)
+    assert shop.requested == [KABEL]  # kolejne uruchomienie pobiera kartę jeszcze raz
+    assert [file.name for file in cache_dir.iterdir()] == ["3916.html"]

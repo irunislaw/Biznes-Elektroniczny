@@ -35,6 +35,9 @@ def test_parse_regular_product():
     page = load_fixture(url)
     product = Product(**parse_product("", page))
     assert product.name == "Ukulele koncertowe UK10S Harley Benton"
+    assert product.description_short.startswith("<p><strong>Ukulele koncertowe UK10S")
+    assert "+ tabela chwytów" in product.description_short
+    assert product.description_short != product.description
     assert product.price_gross == Decimal("299.00")
     assert product.sale_price_gross == Decimal("270.00")
     assert product.category_path == ["Ukulele", "Koncertowe"]

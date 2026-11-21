@@ -9,6 +9,7 @@ class Product(BaseModel):
     id: int
     name: str
     description: str
+    description_short: str = ""
     price_gross: Decimal
     sale_price_gross: Decimal | None = None
     vat_rate_percent: Decimal | None = None
