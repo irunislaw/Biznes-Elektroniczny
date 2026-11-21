@@ -28,7 +28,8 @@ Uzasadnienie wyboru bibliotek: [ADR-001](../docs/adr/0001-biblioteka-scrapera.md
 - `PAGES_CACHE_PATH` - katalog na pobrane karty produktów (`scraper-results/cache/`, w `.gitignore`),
 - `LOGGING_PATH` - katalog na logi,
 - `IMAGES_PATH` - katalog na zdjęcia (`scraper-results/images/`, w `.gitignore`),
-- `IMAGE_MAX_SIDE_PX` (1600), `IMAGE_MAX_BYTES` (300 000 B), `IMAGE_MIN_SIDE_PX` (800) - limity zdjęć.
+- `IMAGE_MAX_SIDE_PX` (1600), `IMAGE_MAX_BYTES` (300 000 B), `IMAGE_MIN_SIDE_PX` (800) - limity zdjęć
+  (dłuższy bok od 800 do 1600 px, plik ≤300 000 B).
 
 ## Uruchomienie
 Wszystkie polecenia uruchamiaj z katalogu `scraper/`
@@ -129,13 +130,20 @@ zdjęcie i dopisuje przy produkcie `image_files`.
   Zapis idzie przez plik tymczasowy, więc przerwanie (Ctrl+C) nie zostawia uciętego zdjęcia.
   Po ponownym `main.py` wystarczy znów uruchomić `download_images.py`: pobierze tylko
   brakujące zdjęcia, a pozostałym produktom uzupełni `image_files` bez zapytań do sklepu.
-- **Skalowanie** (`images.py`, Pillow): dłuższy bok najwyżej 1600 px (mniejsze zdjęcia nie są
-  powiększane), JPEG z jakością obniżaną od 90 co 5, aż plik ma ≤300 000 B, czyli ≤300 KB przy
+  Wyjątek: zapisane zdjęcie z dłuższym bokiem < 800 px (z wersji scrapera sprzed powiększania)
+  jest powiększane z pliku na dysku, też bez zapytań do sklepu. Drugie uruchomienie już go nie zmienia.
+- **Skalowanie** (`images.py`, Pillow): dłuższy bok od 800 do 1600 px. Większe zdjęcie jest
+  zmniejszane do 1600 px, a mniejsze powiększane do 800 px (LANCZOS, proporcje zostają, więc
+  krótszy bok może mieć mniej niż 800 px). Powiększenie nie dodaje szczegółów: najmniejsze zdjęcia
+  (ok. 230 px) są po nim lekko miękkie. JPEG z jakością obniżaną od 90 co 5, aż plik ma ≤300 000 B, czyli ≤300 KB przy
   obu definicjach KB. Gdyby nie wystarczyła nawet jakość 20, obraz jest zmniejszany o 10%
   i próba się powtarza. Przezroczystość zamieniana jest na białe tło, metadane EXIF są usuwane.
 - **Log** `scraper-results/images_RRRR-MM-DD_GG-MM-SS.log`: każde `GET`, wymiary przed i po
-  skalowaniu, jakość i rozmiar, ostrzeżenie `Małe zdjęcie produktu <id>: <szer>x<wys>, dłuższy bok < 800 px (<url>)`
-  oraz podsumowanie: liczba pobranych, pominiętych, błędów i małych zdjęć.
+  skalowaniu, jakość i rozmiar, ostrzeżenie
+  `Małe zdjęcie produktu <id>: <szer>x<wys>, dłuższy bok < 800 px, powiększone do <szer>x<wys> (<url>)`
+  oraz podsumowanie: liczba pobranych, pominiętych, błędów i powiększonych zdjęć.
+  W zbiorze z 21.11.2026 powiększonych zostało 2027 z 6588 zdjęć (dłuższy bok od 234 do 799 px),
+  łącznie o 35 MB.
 
 Pełny zbiór nie trafia do repozytorium. W `scraper-results/przyklady/` jest 20 przykładowych
 zdjęć (tyle pozwala PDF) o tych samych nazwach co w `images/`.
@@ -143,8 +151,8 @@ zdjęć (tyle pozwala PDF) o tych samych nazwach co w `images/`.
 ### Kontrola zdjęć
 `check_images.py` losuje 20 produktów z `results.json` i dla każdego zdjęcia wypisuje wymiary
 w pikselach i rozmiar w KB (1 KB = 1024 B, jak w Eksploratorze Windows). Kod wyjścia 1
-oznacza, że któreś zdjęcie łamie limit (brak pliku, nie JPEG, dłuższy bok > 1600 px,
-plik > 300 000 B). Małe zdjęcia są oznaczone, ale nie są błędem.
+oznacza, że któreś zdjęcie łamie limit (brak pliku, nie JPEG, dłuższy bok < 800 px
+albo > 1600 px, plik > 300 000 B). Podsumowanie podaje najkrótszy i najdłuższy dłuższy bok.
 
     python check_images.py                                     # 20 losowych produktów
     python check_images.py --seed 123                          # powtórzenie tego samego losowania
@@ -208,8 +216,8 @@ ruff check .
 Testy działają bez internetu – używają zapisanych stron z `tests/fixtures/`
 (`save_fixtures.py` służy do ich ponownego pobrania). `test_images.py` generuje obrazy
 w Pillow (gradient z szumem, czysty szum, przezroczysty PNG) i podstawia sztucznego klienta
-zamiast `ShopClient`, więc sprawdza skalowanie, nazwy plików, pomijanie pobranych zdjęć
-i log małych zdjęć bez połączenia ze sklepem. `fake-page-5.html` to ręcznie
+zamiast `ShopClient`, więc sprawdza zmniejszanie i powiększanie (także zdjęć już zapisanych,
+bez pobierania), nazwy plików, pomijanie pobranych zdjęć i log powiększonych zdjęć bez połączenia ze sklepem. `fake-page-5.html` to ręcznie
 zmodyfikowana strona z VAT 8%, atrybutami i wagą - sprawdza parsowanie innej stawki VAT
 oraz pól, których prawdziwe strony sklepu nie mają.
 `test_resume.py` używa tego samego sztucznego klienta (`tests/conftest.py`) i stron z `fixtures/`:
@@ -222,7 +230,7 @@ adresach nie wysyła żadnego zapytania (także o kartę pominiętą), `--od-now
 ## Znane ograniczenia
  
 - Atrybuty (`attributes`) są puste - sklep nie udostępnia cech produktu (`features` w `data-product` jest pustą listą). Parser je obsługuje (patrz `fake-page-5.html`).
-- Zdjęcia to oryginały; large_default dla małych oryginałów to ten sam obraz na białym płótnie 800×800, więc nie zawiera więcej treści.
+- Zdjęcia to oryginały ze sklepu; mniejsze niż 800 px są powiększane (patrz „Zdjęcia”), więc nie mają więcej szczegółów niż oryginał. large_default ze sklepu źródłowego nie byłby lepszy: dla małych oryginałów to ten sam obraz na białym płótnie 800×800.
 - `category_path` to kategoria domyślna produktu, więc może się różnić od scrapowanej kategorii.
 - Produkty zbierane są tylko z kategorii-liści.
 - `Crawl-delay` z `robots.txt` nie jest uwzględniany.
