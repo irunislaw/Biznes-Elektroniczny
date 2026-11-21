@@ -5,6 +5,9 @@
 // - adresy e-mail sklepu i sekrety modułu newslettera, które zrzut wyczyścił.
 // Zmienia tylko to, co się różni, więc kolejne uruchomienia niczego nie psują
 // (np. hasło nie jest haszowane od nowa, więc zalogowany administrator nie zostaje wylogowany).
+//
+// php dopasuj.php domena (make restore): tylko domena i SSL. Konto administratora i e-maile sklepu
+// zostają takie, jak w kopii.
 
 require_once '/var/www/html/config/config.inc.php';
 
@@ -37,19 +40,15 @@ function ustaw(string $key, string $value): bool
     return true;
 }
 
+$onlyDomain = ($argv[1] ?? '') === 'domena';
 $domain = env('PS_DOMAIN');
 $ssl = env('PS_ENABLE_SSL') === '1' ? '1' : '0';
-$email = env('ADMIN_MAIL');
-$password = env('ADMIN_PASSWD');
-
-if (!Validate::isEmail($email)) {
-    throw new RuntimeException('ADMIN_MAIL nie jest poprawnym adresem e-mail');
-}
 
 $db = Db::getInstance();
 
 // Domena i SSL
 $changed = false;
+$oldDomain = (string) Configuration::get('PS_SHOP_DOMAIN_SSL');
 
 foreach ([
     'PS_SHOP_DOMAIN' => $domain,
@@ -69,12 +68,30 @@ if ($db->getValue('SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'shop_url` WHERE ' . 
     $changed = true;
 }
 
-// .htaccess zawiera domenę sklepu
-if ($changed && !Tools::generateHtaccess()) {
+// Własne linki menu górnego mają pełny adres, np. „Katalog produktów” z deploy/config/uklad.php.
+// make init odświeża go w uklad.php, a make restore nie uruchamia deploy/config/, więc zmieniamy domenę tutaj.
+if ($oldDomain !== '' && $oldDomain !== $domain) {
+    $db->execute('UPDATE `' . _DB_PREFIX_ . 'linksmenutop_lang` SET link = REPLACE(link, \'://' . pSQL($oldDomain) . '/\', \'://' . pSQL($domain) . '/\')');
+}
+
+// .htaccess zawiera domenę sklepu. Po make restore zawsze od nowa, bo .htaccess z kopii ma domenę
+// komputera, na którym powstała. Własne reguły spoza znaczników ~~start~~/~~end~~ zostają.
+if (($changed || $onlyDomain) && !Tools::generateHtaccess()) {
     throw new RuntimeException('Nie udalo sie wygenerowac .htaccess');
 }
 
 echo "Domena i SSL ($domain): OK\n";
+
+if ($onlyDomain) {
+    return;
+}
+
+$email = env('ADMIN_MAIL');
+$password = env('ADMIN_PASSWD');
+
+if (!Validate::isEmail($email)) {
+    throw new RuntimeException('ADMIN_MAIL nie jest poprawnym adresem e-mail');
+}
 
 // Administrator
 $employeeId = (int) $db->getValue(
