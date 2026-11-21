@@ -121,7 +121,7 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
 
 # Import
-Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
+Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia, promocje i stany magazynowe z wyników scrapera oraz warianty produktów z [`deploy/import/config.py`](deploy/import/config.py) (`VARIANTS`) przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
 
 - uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
 
