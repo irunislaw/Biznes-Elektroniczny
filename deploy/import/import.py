@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import random
@@ -185,6 +186,9 @@ def create_product_xml(product, category_id, categories, id_manufacturer=None):
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
                 </description>
+                <description_short>
+                    <language id="1"><![CDATA[{product.get("description_short") or ""}]]></language>
+                </description_short>
                 <associations>
                     <categories>
                     {categories_xml}
@@ -210,6 +214,9 @@ def create_product_update_xml(ps_product_id, product, id_manufacturer=None):
                 <description>
                     <language id="1"><![CDATA[{product["description"]}]]></language>
                 </description>
+                <description_short>
+                    <language id="1"><![CDATA[{product.get("description_short") or ""}]]></language>
+                </description_short>
                 <weight><![CDATA[{product.get("weight") or 0}]]></weight>
             </product>
         </prestashop>
@@ -382,10 +389,26 @@ def create_stock_xml(stock_id, amount):
     return xml
 
 
-def set_stocks(products, product_id_map):
-    stocks = api_get("stock_availables", {"display": "[id,id_product]"})["stock_availables"]
-    stocks_in_database = {int(s["id_product"]): int(s["id"]) for s in stocks}
-    empty_stocks = 0
+def set_stock(stock_id, amount):
+    api_patch(f"stock_availables/{stock_id}", create_stock_xml(stock_id, amount))
+
+
+def split_stock(total, count, rng):
+    """Rozdziela stan produktu między warianty: każda sztuka trafia do losowego wariantu.
+
+    PrestaShop trzyma stan produktu z wariantami jako sumę stanów wariantów, więc warianty
+    losowane osobno po 0-10 dałyby produkt ze stanem do 30. Po podziale suma = total <= 10.
+    """
+    amounts = [0] * count
+    for _ in range(total):
+        amounts[rng.randrange(count)] += 1
+    return amounts
+
+
+def set_stocks(products, product_id_map, variant_ids):
+    stocks = api_get("stock_availables", {"display": "[id,id_product,id_product_attribute]"})["stock_availables"]
+    stocks_in_database = {(int(s["id_product"]), int(s["id_product_attribute"])): int(s["id"]) for s in stocks}
+    empty_stocks = variants = empty_variants = 0
     for i, product in enumerate(products, 1):
         if i % 100 == 0 or i == len(products):
             logger.info("Stany: %d/%d", i, len(products))
@@ -397,18 +420,29 @@ def set_stocks(products, product_id_map):
             continue
 
         try:
-            stock_id = stocks_in_database[ps_id]
             rng = random.Random(config.RANDOM_SEED - source_id)
             stock_amount = rng.randint(0, 10)
             if stock_amount == 0:
                 empty_stocks += 1
-            xml = create_stock_xml(stock_id, stock_amount)
-            api_patch(f"stock_availables/{stock_id}", xml)
+
+            combination_ids = variant_ids.get(ps_id, [])
+            if combination_ids:
+                for combination_id, amount in zip(
+                    combination_ids, split_stock(stock_amount, len(combination_ids), rng), strict=True
+                ):
+                    set_stock(stocks_in_database[(ps_id, combination_id)], amount)
+                    variants += 1
+                    if amount == 0:
+                        empty_variants += 1
+
+            # Przy wariantach PrestaShop sam ustawia tu sumę wariantów, czyli tę samą liczbę
+            set_stock(stocks_in_database[(ps_id, 0)], stock_amount)
         except (requests.RequestException, KeyError, ValueError) as e:
             logger.error("Nie ustawiono stanu produktu %d: %s", source_id, e)
 
     logger.info("Produktów o stanie 0: %d", empty_stocks)
     logger.info("Procentowo: %.2f%%", ((empty_stocks / len(products)) * 100))
+    logger.info("Wariantów o stanie 0: %d z %d", empty_variants, variants)
 
 
 def create_specific_price_xml(ps_product_id, reduction, sp_id=None):
@@ -523,6 +557,30 @@ def create_manufacturer_xml(name):
     """
 
 
+def lang_value(field):
+    """Pole wielojęzyczne z API: napis albo lista [{"id": ..., "value": ...}]."""
+    return field[0]["value"] if isinstance(field, list) else field
+
+
+def create_option_xml(name, option_id=None):
+    id_xml = f"<id>{option_id}</id>" if option_id else ""
+    return f"""
+        <prestashop>
+            <product_option>
+                {id_xml}
+                <is_color_group>0</is_color_group>
+                <group_type>select</group_type>
+                <name>
+                    <language id="1"><![CDATA[{name}]]></language>
+                </name>
+                <public_name>
+                    <language id="1"><![CDATA[{name}]]></language>
+                </public_name>
+            </product_option>
+        </prestashop>
+    """
+
+
 def get_manufacturers_with_logo():
     response = requests.get(
         config.API_URL + "/images/manufacturers", auth=config.LOGIN, verify=False, timeout=config.TIMEOUT
@@ -599,6 +657,182 @@ def count_brand_assignments(products, product_id_map, manufacturer_id_map):
         name, origin = product_brand(product)
         counter[origin if brand_key(name) in manufacturer_id_map else "none"] += 1
     return counter
+
+
+def create_option_value_xml(option_id, name):
+    return f"""
+        <prestashop>
+            <product_option_value>
+                <id_attribute_group>{option_id}</id_attribute_group>
+                <name>
+                    <language id="1"><![CDATA[{name}]]></language>
+                </name>
+            </product_option_value>
+        </prestashop>
+    """
+
+
+def create_combination_xml(ps_product_id, value_ids, default):
+    values_xml = "".join(f"<product_option_value><id>{v}</id></product_option_value>" for v in value_ids)
+    default_xml = "<default_on>1</default_on>" if default else ""
+    return f"""
+        <prestashop>
+            <combination>
+                <id_product>{ps_product_id}</id_product>
+                <minimal_quantity>1</minimal_quantity>
+                {default_xml}
+                <associations>
+                    <product_option_values>{values_xml}</product_option_values>
+                </associations>
+            </combination>
+        </prestashop>
+    """
+
+
+def set_options():
+    """Cechy (product_options) i ich wartości (product_option_values) z config.VARIANTS.
+
+    Cecha jest rozpoznawana po nazwie, wartość po cesze i nazwie. Dodaje brakujące, a cechy i wartości
+    spoza configu (np. demo „Paper Type”) tylko zbiera do usunięcia przez clear_options.
+    Zwraca liczniki, {(cecha, wartość): id wartości} i to, co trzeba usunąć.
+    """
+    counter = {"added": 0, "updated": 0, "deleted": 0, "rejected": 0}
+    value_counter = {"added": 0, "deleted": 0, "rejected": 0}
+
+    planned = {}
+    for features in config.VARIANTS.values():
+        for name, values in features.items():
+            planned.setdefault(name, {}).update(dict.fromkeys(values))
+
+    existing = api_get("product_options", {"display": "[id,name]"})
+    existing = {lang_value(o["name"]): int(o["id"]) for o in (existing or {}).get("product_options", [])}
+
+    option_ids = {}
+    for name in planned:
+        try:
+            if name in existing:
+                option_id = existing[name]
+                # Zawsze lista rozwijana, także gdy cecha o tej nazwie była w danych demo (np. „Kolor” z próbkami)
+                api_patch(f"product_options/{option_id}", create_option_xml(name, option_id))
+                counter["updated"] += 1
+            else:
+                option_id = int(api_post("product_options", create_option_xml(name))["product_option"]["id"])
+                counter["added"] += 1
+            option_ids[name] = option_id
+        except (requests.RequestException, KeyError, ValueError) as e:
+            logger.error("Nie ustawiono cechy %s: %s", name, e)
+            counter["rejected"] += 1
+
+    existing_values = api_get("product_option_values", {"display": "[id,id_attribute_group,name]"})
+    existing_values = {
+        (int(v["id_attribute_group"]), lang_value(v["name"])): int(v["id"])
+        for v in (existing_values or {}).get("product_option_values", [])
+    }
+
+    value_ids = {}
+    for name, option_id in option_ids.items():
+        for value in planned[name]:
+            if (option_id, value) in existing_values:
+                value_ids[(name, value)] = existing_values[(option_id, value)]
+                continue
+            try:
+                response = api_post("product_option_values", create_option_value_xml(option_id, value))
+                value_ids[(name, value)] = int(response["product_option_value"]["id"])
+                value_counter["added"] += 1
+            except (requests.RequestException, KeyError, ValueError) as e:
+                logger.error("Nie dodano wartości %s cechy %s: %s", value, name, e)
+                value_counter["rejected"] += 1
+
+    planned_value_ids = set(value_ids.values())
+    stale = {
+        "options": {name: option_id for name, option_id in existing.items() if name not in planned},
+        "values": {
+            value_id: value
+            for (option_id, value), value_id in existing_values.items()
+            if option_id in option_ids.values() and value_id not in planned_value_ids
+        },
+    }
+
+    return counter, value_counter, value_ids, stale
+
+
+def clear_options(stale, counter, value_counter):
+    """Usuwa cechy i wartości spoza configu.
+
+    Wywoływana po set_variants: PrestaShop przy usuwaniu wartości kasuje też jej warianty,
+    więc gdyby wartości znikały wcześniej, raport nie policzyłby tych wariantów jako usuniętych.
+    """
+    for name, option_id in stale["options"].items():
+        try:
+            api_delete(f"product_options/{option_id}")
+            counter["deleted"] += 1
+        except requests.RequestException as e:
+            logger.error("Nie usunięto cechy %s: %s", name, e)
+
+    for value_id, value in stale["values"].items():
+        try:
+            api_delete(f"product_option_values/{value_id}")
+            value_counter["deleted"] += 1
+        except requests.RequestException as e:
+            logger.error("Nie usunięto wartości cechy %s: %s", value, e)
+
+
+def set_variants(product_id_map, value_ids):
+    """Warianty (combinations) z config.VARIANTS.
+
+    Wariant jest rozpoznawany po produkcie i zestawie wartości cech. Istniejący zostaje bez zmian,
+    brakujący jest dodawany, a wariant spoza configu (albo duplikat) usuwany.
+    Zwraca liczniki i {id produktu w sklepie: [id wariantów w kolejności z configu]}.
+    """
+    counter = {"added": 0, "unchanged": 0, "deleted": 0, "rejected": 0}
+
+    planned = {}
+    for source_id, features in config.VARIANTS.items():
+        ps_id = product_id_map.get(source_id)
+        if ps_id is None:
+            logger.warning("Warianty: produktu %d nie ma w imporcie, pomijam", source_id)
+            continue
+        planned[ps_id] = []
+        for combo in itertools.product(*features.values()):
+            try:
+                planned[ps_id].append(frozenset(value_ids[pair] for pair in zip(features, combo, strict=True)))
+            except KeyError:
+                logger.error("Produkt %d: brak wartości cech dla wariantu %s, pomijam", source_id, combo)
+                counter["rejected"] += 1
+
+    existing = api_get("combinations", {"display": "full"})
+    kept = {}
+    for c in (existing or {}).get("combinations", []):
+        ps_id = int(c["id_product"])
+        values = frozenset(int(v["id"]) for v in c.get("associations", {}).get("product_option_values", []))
+        if values in planned.get(ps_id, []) and (ps_id, values) not in kept:
+            kept[(ps_id, values)] = int(c["id"])
+            counter["unchanged"] += 1
+            continue
+        try:
+            api_delete(f"combinations/{c['id']}")
+            counter["deleted"] += 1
+        except requests.RequestException as e:
+            logger.error("Nie usunięto wariantu %s produktu %d: %s", c["id"], ps_id, e)
+
+    variant_ids = {}
+    for ps_id, combos in planned.items():
+        has_default = any((ps_id, values) in kept for values in combos)
+        variant_ids[ps_id] = []
+        for values in combos:
+            if (ps_id, values) in kept:
+                variant_ids[ps_id].append(kept[(ps_id, values)])
+                continue
+            try:
+                xml = create_combination_xml(ps_id, sorted(values), default=not has_default)
+                variant_ids[ps_id].append(int(api_post("combinations", xml)["combination"]["id"]))
+                has_default = True
+                counter["added"] += 1
+            except (requests.RequestException, KeyError, ValueError) as e:
+                logger.error("Nie dodano wariantu produktu %d: %s", ps_id, e)
+                counter["rejected"] += 1
+
+    return counter, variant_ids
 
 
 def add_image(product_id, image_path):
@@ -727,7 +961,10 @@ def main():
         assignments = count_brand_assignments(products, product_id_map, manufacturer_id_map)
         promo_counter = set_promotions(products, product_id_map)
         add_images(products, product_id_map)
-        set_stocks(products, product_id_map)
+        option_counter, value_counter, value_ids, stale_options = set_options()
+        variant_counter, variant_ids = set_variants(product_id_map, value_ids)
+        clear_options(stale_options, option_counter, value_counter)
+        set_stocks(products, product_id_map, variant_ids)
 
     end_time = time.perf_counter()
     logger.info(
@@ -756,6 +993,26 @@ def main():
         assignments["source"],
         assignments["mapping"],
         assignments["none"],
+    )
+    logger.info(
+        "Cechy wariantów: utworzono %d, zaktualizowano %d, usunięto %d, odrzucono %d",
+        option_counter["added"],
+        option_counter["updated"],
+        option_counter["deleted"],
+        option_counter["rejected"],
+    )
+    logger.info(
+        "Wartości cech: utworzono %d, usunięto %d, odrzucono %d",
+        value_counter["added"],
+        value_counter["deleted"],
+        value_counter["rejected"],
+    )
+    logger.info(
+        "Warianty: utworzono %d, bez zmian %d, usunięto %d, odrzucono %d",
+        variant_counter["added"],
+        variant_counter["unchanged"],
+        variant_counter["deleted"],
+        variant_counter["rejected"],
     )
     logger.info("Czas importu: %.2fs", end_time - start_time)
 

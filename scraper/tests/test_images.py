@@ -60,10 +60,21 @@ def test_incompressible_image_still_fits_limit():
     assert max(resized.size) < MAX_SIDE
 
 
-def test_small_image_is_not_upscaled():
+def test_small_image_is_upscaled_to_min_side():
     resized = resize_image(to_bytes(noisy_photo(600, 400)))
-    assert resized.size == (600, 400)
+    assert resized.original_size == (600, 400)
+    assert open_result(resized).size == resized.size == (800, 533)  # proporcje 3:2 zachowane
     assert resized.quality == START_QUALITY
+
+
+def test_small_portrait_image_longer_side_is_height():
+    resized = resize_image(to_bytes(noisy_photo(300, 450)))
+    assert resized.size == (533, 800)
+
+
+def test_image_between_limits_keeps_size():
+    resized = resize_image(to_bytes(noisy_photo(1000, 700)))
+    assert resized.size == (1000, 700)
 
 
 def test_transparent_png_gets_white_background():
@@ -90,7 +101,7 @@ def responses():
     }
 
 
-def test_downloader_names_files_and_logs_small_images(tmp_path, responses, caplog):
+def test_downloader_names_files_and_upscales_small_images(tmp_path, responses, caplog):
     downloader = ImageDownloader(FakeClient(responses), tmp_path)
 
     files = downloader.download(487, [LARGE_URL, SMALL_URL, HTML_URL, MISSING_URL])
@@ -99,9 +110,11 @@ def test_downloader_names_files_and_logs_small_images(tmp_path, responses, caplo
     assert files == ["487-1.jpg", "487-2.jpg"]
     assert sorted(path.name for path in tmp_path.iterdir()) == ["487-1.jpg", "487-2.jpg"]
     small_warnings = [record.getMessage() for record in caplog.records if "Małe zdjęcie" in record.getMessage()]
-    assert small_warnings == [f"Małe zdjęcie produktu 487: 700x500, dłuższy bok < 800 px ({SMALL_URL})"]
+    assert small_warnings == [
+        f"Małe zdjęcie produktu 487: 700x500, dłuższy bok < 800 px, powiększone do 800x571 ({SMALL_URL})"
+    ]
     assert f"Nie udało się odczytać zdjęcia {HTML_URL}" in caplog.text
-    assert downloader.stats == {"pobrane": 2, "błędy": 2, "małe": 1}
+    assert downloader.stats == {"pobrane": 2, "błędy": 2, "powiększone": 1}
     for path in tmp_path.iterdir():
         assert check_file(path, MAX_SIDE, MAX_BYTES)["errors"] == []
 
@@ -117,9 +130,34 @@ def test_downloader_skips_already_downloaded(tmp_path, responses, caplog):
 
     assert client.requested == []
     assert files == ["487-1.jpg", "487-2.jpg"]
+    # Małe zdjęcie zostało powiększone przy pierwszym pobraniu, więc drugie uruchomienie niczego nie zmienia
     assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == first_run
-    assert downloader.stats == {"pominięte": 2, "małe": 1}
-    assert "Małe zdjęcie produktu 487" in caplog.text  # małe zdjęcie trafia do logu także przy pominięciu
+    assert downloader.stats == {"pominięte": 2}
+    assert "Małe zdjęcie" not in caplog.text
+
+
+def test_saved_small_image_is_upscaled_without_download(tmp_path, caplog):
+    """Zdjęcie zapisane przez starszą wersję scrapera (bez powiększania) jest powiększane z pliku."""
+    saved = tmp_path / "487-1.jpg"
+    saved.write_bytes(to_bytes(noisy_photo(700, 500), quality=90))
+    client = FakeClient({})
+    downloader = ImageDownloader(client, tmp_path)
+
+    files = downloader.download(487, [SMALL_URL])
+
+    assert client.requested == []
+    assert files == ["487-1.jpg"]
+    with Image.open(saved) as img:
+        assert img.size == (800, 571)
+    assert check_file(saved, MAX_SIDE, MAX_BYTES)["errors"] == []
+    assert downloader.stats == {"pominięte": 1, "powiększone": 1}
+    assert f"powiększone do 800x571 ({SMALL_URL})" in caplog.text
+
+    upscaled = saved.read_bytes()
+    again = ImageDownloader(FakeClient({}), tmp_path)
+    again.download(487, [SMALL_URL])
+    assert saved.read_bytes() == upscaled  # powiększone zdjęcie nie jest przetwarzane drugi raz
+    assert again.stats == {"pominięte": 1}
 
 
 def test_check_file_reports_violations(tmp_path):
@@ -133,8 +171,7 @@ def test_check_file_reports_violations(tmp_path):
     assert any("B > 300000 B" in error for error in errors)
 
     result = check_file(png, MAX_SIDE, MAX_BYTES)
-    assert result["errors"] == ["format PNG, a nie JPEG"]
-    assert result["notes"] == ["małe: dłuższy bok < 800 px"]
+    assert result["errors"] == ["format PNG, a nie JPEG", "dłuższy bok 500 px < 800 px"]
     assert check_file(tmp_path / "brak.jpg")["errors"] == ["brak pliku"]
 
 

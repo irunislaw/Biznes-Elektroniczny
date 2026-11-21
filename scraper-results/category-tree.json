@@ -238,7 +238,6 @@
               "children": [],
               "products": [
                 "https://gitara-sklep.pl/tunery/136-ctm-700-metro-tuner-tuner-chromatyczny-i-metronom-thomann.html",
-                "https://gitara-sklep.pl/tunery/1671--tunerstroik-chromatyczny-3d-ars-nova.html",
                 "https://gitara-sklep.pl/tunery/137-tuner-chromatyczny-ctk-10-czarny-thomann.html",
                 "https://gitara-sklep.pl/tunery/630-ctg-10-tuner-chromatyczny-stroik-do-instrumentow-akustycznych-thomann.html",
                 "https://gitara-sklep.pl/tunery/2947-gt-2-tuner-gitarowy-stroik-do-instrumentow-strunowych-ambra.html",
@@ -265,7 +264,7 @@
                 "https://gitara-sklep.pl/tunery/6358-ctu10-ukulele-clip-tuner-stroik-chromatyczny-do-ukulele-thomann-4049172284180.html",
                 "https://gitara-sklep.pl/gitarowe/6825-ministomp-pitchmate-tuner-stroik-podlogowy-do-gitary-i-basu-harley-benton.html"
               ],
-              "count": 27
+              "count": 26
             },
             {
               "url": "https://gitara-sklep.pl/138-kostki",
@@ -412,11 +411,11 @@
             }
           ],
           "products": [],
-          "count": 195
+          "count": 194
         }
       ],
       "products": [],
-      "count": 272
+      "count": 271
     },
     {
       "url": "https://gitara-sklep.pl/17-syntezatory-i-keyboardy",
@@ -482,9 +481,10 @@
             "https://gitara-sklep.pl/syntezatory-modulowe/4939-chaos-analogowy-sampler-modul-format-eurorack-behringer-4033653232135.html",
             "https://gitara-sklep.pl/syntezatory-modulowe/4945-victor-modul-czterokierunkowy-syntezatora-eurorack-behringer-4033653072182.html",
             "https://gitara-sklep.pl/syntezatory-modulowe/5279-cu1a-modul-syntezatora-interfejs-audio-usb-22-eurorack-behringer-4033653017381.html",
-            "https://gitara-sklep.pl/syntezatory-modulowe/5415-surges-modul-syntezatora-modularnego-filtr-liquid-eurorack-behringer-4033650000000.html"
+            "https://gitara-sklep.pl/syntezatory-modulowe/5415-surges-modul-syntezatora-modularnego-filtr-liquid-eurorack-behringer-4033650000000.html",
+            "https://gitara-sklep.pl/syntezatory-modulowe/7074-vocoder-vc16-modul-syntezatora-modularnego-behringer-4033653000253.html"
           ],
-          "count": 56
+          "count": 57
         },
         {
           "url": "https://gitara-sklep.pl/255-syntezatory-klawiszowe-behringer",
@@ -647,7 +647,7 @@
         }
       ],
       "products": [],
-      "count": 159
+      "count": 160
     },
     {
       "url": "https://gitara-sklep.pl/308-perkusja",

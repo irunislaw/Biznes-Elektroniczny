@@ -18,6 +18,7 @@ class Product(BaseModel):
     id: int
     name: str
     description: str
+    description_short: str = ""
     price_gross: Decimal
     sale_price_gross: Decimal | None = None
     # Marka z karty produktu; None, gdy sklep nie podaje producenta

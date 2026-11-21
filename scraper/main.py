@@ -174,6 +174,7 @@ def parse_product(url, html):
         "id": data["id_product"],
         "name": data["name"],
         "description": data["description"],
+        "description_short": data.get("description_short") or "",
         "price_gross": data["price_without_reduction"],
         "sale_price_gross": data["price_amount"] if data["has_discount"] else None,
         "brand": parse_brand(soup),

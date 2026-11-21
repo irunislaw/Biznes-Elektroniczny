@@ -37,7 +37,10 @@ class CachedClient:
             return SimpleNamespace(content=path.read_bytes())
 
         page = self.client.get(url)
-        if page is not None:
+        if page is not None and not page.content:
+            # Sklep potrafi odpowiedzieć 200 z pustą treścią; taka karta na dysku blokowałaby ponowne pobranie
+            logger.warning("Pusta odpowiedź, karta nie trafia na dysk: %s", url)
+        elif page is not None:
             # Przez plik tymczasowy: przerwanie nie zostawi uciętej strony, którą kolejny przebieg uznałby za pobraną
             write_atomic(path, page.content)
             self.stats["pobrane"] += 1
