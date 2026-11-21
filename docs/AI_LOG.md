@@ -52,4 +52,28 @@ Dopisz nowy wiersz na końcu tabeli. Przykład:
 
 ## Refleksja zespołu
 
-<!-- Uzupełniamy w sprincie 4, do 1 strony: gdzie AI realnie przyspieszyło pracę, gdzie wprowadziło w błąd i czego zespół musiał się nauczyć sam. Jeśli ktoś nie korzystał z AI, piszemy to tutaj. -->
+Z AI korzystała cała piątka (Claude Opus 5.5, ChatGPT i Codex na GPT-6, Gemini 3.1 Pro). Ogólny wniosek: AI wyraźnie przyspiesza pracę, ale każdy jego wynik trzeba sprawdzić w działającym sklepie.
+
+### Gdzie AI realnie przyspieszyło pracę
+
+- **Trudne błędy.** AI pomagało znaleźć źródło błędu, wytłumaczyć je i naprawić. Tak było z Nortonem przechwytującym HTTPS przy instalacji PrestaShop (BE-7), z `ERR_CONNECTION_REFUSED` w Playwright, bo sklep przyjmuje tylko `localhost` (BE-13), z trafieniami gitleaks, które okazały się publicznymi tokenami CSRF (BE-15), i z błędem HTTP 500 w konfiguracji sklepu (BE-12).
+- **Start zadania, o którym mało wiemy.** Pierwsza wersja lub szkielet kodu pozwalały ruszyć z miejsca: klasa `ShopClient` w scraperze (BE-9), skrypty PHP konfigurujące sklep (BE-12), motyw potomny i skrypt zrzutów (BE-26), kroki E2E na podstawie nagrania Codegen (BE-24, BE-29).
+- **Powtarzalny kod.** Kod promocji w imporcie powstał na wzór istniejącego kodu stanu magazynowego (BE-34).
+- **Żmudne czynności.** Codex postawił sklep od zera, uruchomił 10 przebiegów `make test` i przygotował raport z czasami (BE-29).
+- **Dokumentacja.** AI dobrze uzupełniało dokumentację o wprowadzone zmiany: README scrapera (BE-9, BE-10, BE-17, BE-28), opisy PR (BE-19), strony CMS (BE-30).
+
+### Gdzie AI wprowadziło w błąd
+
+- **Robiło za dużo.** Do prostego zadania dostawaliśmy niepotrzebnie skomplikowany kod. Test koszyka przechodził po kolejnych stronach kategorii, choć wystarczała pierwsza, a do adresu e-mail w teście użyto UUID z `node:crypto` zamiast `Date.now()` (BE-25).
+- **Ogólne albo błędne rady.** Wskazówka dla Nortona była na tyle ogólna, że wyłączone zostało złe ustawienie (BE-7). Propozycja `host-gateway` nie mogła zadziałać (BE-13), a uruchamianie skryptów jako `www-data` psuło uprawnienia (BE-12). Zdarzało się też, że AI czepiało się rzeczy, które były zrobione dobrze.
+- **Pominięte przypadki.** Zapytania SQL nie liczyły głębszych podkategorii ani wariantów (BE-27), import wywracał się na braku `quantity` (BE-11), a wznowiony scraper pobierał od nowa pominięte karty (BE-28).
+- **Niedokładność i zmyślone liczby.** Przy układzie sklepu większość elementów wymagała ręcznej poprawki (BE-33). W BE-18 szacunek mówił o 258 produktach i 1259 zdjęciach, a w rzeczywistości było ich 1124 i 6302, więc pobieranie trwało 53 minuty zamiast 11.
+- **Ukryte ryzyko.** Pierwszy wyjątek w gitleaks obejmował cały katalog `fixtures/`, więc przepuściłby też prawdziwy klucz (BE-15).
+
+### Czego musieliśmy nauczyć się sami
+
+- **Sprawdzać, czy to naprawdę działa w sklepie**, a nie wierzyć opisowi AI. Pomagały: `make reset` i `make init` na czystym środowisku (BE-26), porównanie z panelem administracyjnym (BE-20, BE-27) i polskie znaki sprawdzone w Mailpit (BE-12).
+- **Testować kilka razy i kontrolnie.** Testy E2E uruchamialiśmy po 5 razy w VS Code i przez `make test` (BE-25), a do fixture dopisaliśmy fałszywy klucz, żeby upewnić się, że gitleaks nadal go wykrywa (BE-15).
+- **Upraszczać i zawężać.** Odrzucaliśmy zbędne zmiany i prosiliśmy o mniejszy zakres zamiast przyjmować pierwszą, rozbudowaną wersję.
+- **Filtrować rady.** Nie każda uwaga AI wskazuje prawdziwy problem, a o tym, co zostaje w kodzie, decyduje osoba, która za niego odpowiada.
+- **Sprawdzać treść dokumentacji, nie tylko jej formę.** Liczby i komunikaty w README porównywaliśmy z logami z prawdziwego uruchomienia (BE-28).
