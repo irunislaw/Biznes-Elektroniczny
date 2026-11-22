@@ -78,14 +78,14 @@ Na końcu logu jest raport:
 
 ```
 Kategorie: utworzono 0, zaktualizowano 61, odrzucono 0
-Produkty: utworzono 0, zaktualizowano 1161, odrzucono 0
-Promocje: utworzono 0, zaktualizowano 302, usunięto 0, odrzucono 0
+Produkty: utworzono 0, zaktualizowano 1169, odrzucono 0
+Promocje: utworzono 0, zaktualizowano 315, usunięto 0, odrzucono 0
 Marki: utworzono 0, istniejące 40, odrzucono 0, wgrane loga 0
 Produkty z marką: ze źródła 1166, z mapowania 2, bez marki 1
 Cechy wariantów: utworzono 0, zaktualizowano 3, usunięto 0, odrzucono 0
 Wartości cech: utworzono 0, usunięto 0, odrzucono 0
 Warianty: utworzono 0, bez zmian 33, usunięto 0, odrzucono 0
-Czas importu: 69.30s
+Czas importu: 87.04s
 ```
 
 Przed raportem log podaje liczbę produktów o stanie 0 i liczbę wariantów o stanie 0.
