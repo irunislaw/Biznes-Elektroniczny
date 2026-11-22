@@ -32,7 +32,7 @@ Produkty nie są importowane na każdym komputerze. Osoba, która zrobiła impor
 | Co | Gdzie | Rozmiar |
 |---|---|---|
 | zrzut bazy | [`deploy/dane/sklep.sql.gz`](deploy/dane/) w repozytorium | do kilku MB |
-| zdjęcia produktów (`img/p`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag `dane-v1` | do 1 GB |
+| zdjęcia produktów (`img/p`) i loga marek (`img/m`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag `dane-v2` | do 1 GB |
 | suma SHA-256 archiwum | [`deploy/dane/zdjecia.sha256`](deploy/dane/) w repozytorium | |
 
 Releases to zakładka GitHuba z plikami do pobrania przypiętymi do tagu. Adres archiwum jest w `ZDJECIA_URL` w `.env`.
@@ -41,14 +41,14 @@ Releases to zakładka GitHuba z plikami do pobrania przypiętymi do tagu. Adres 
 Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 1. czeka, aż instalator PrestaShop skończy pracę, i kopiuje do sklepu moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i motyw [`shop/themes/gitara`](shop/themes/gitara/). Robi to przed wczytaniem zrzutu, bo PrestaShop nie uruchamia się, gdy baza ma włączony motyw, którego plików nie ma,
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
-3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
+3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p`, a loga marek do `img/m` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
 5. kopiuje moduły [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i [`shop/modules/beomnibus`](shop/modules/beomnibus/) (najniższa cena z 30 dni, [Omnibus](#omnibus-najniższa-cena-z-30-dni)) oraz motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułów i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 6. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
-**Gdy archiwum jest niedostępne** (brak sieci do GitHuba, plik usunięty, prywatne repozytorium bez tokenu), `make init` pobiera zdjęcia z adresów zapisanych przez scraper w `scraper-results/results.json`. Robi to tym samym kodem co scraper (`download_images.py --bez-zapisu` w kontenerze Pythona), więc z tym samym User-Agentem, `robots.txt`, limitem 2 zapytań/s i skalowaniem. Pełny zbiór to ok. 6500 zdjęć, czyli ok. 1 h. Zdjęcia, które już są w `scraper-results/images/`, nie są pobierane. Import wysyła zdjęcia produktu w kolejności `image_files`, więc zdjęcie na pozycji N w sklepie to N-ty plik z `image_files` produktu o `reference` równym id ze sklepu źródłowego.
+**Gdy archiwum jest niedostępne** (brak sieci do GitHuba, plik usunięty, prywatne repozytorium bez tokenu), `make init` pobiera zdjęcia z adresów zapisanych przez scraper w `scraper-results/results.json`. Robi to tym samym kodem co scraper (`download_images.py --bez-zapisu` w kontenerze Pythona), więc z tym samym User-Agentem, `robots.txt`, limitem 2 zapytań/s i skalowaniem. Pełny zbiór to ok. 6500 zdjęć, czyli ok. 1 h. Zdjęcia, które już są w `scraper-results/images/`, nie są pobierane. Tą ścieżką nie wracają loga marek (`img/m`): marki są w bazie, ale bez obrazków, dopóki nie uruchomisz importu, który wgra brakujące loga. Import wysyła zdjęcia produktu w kolejności `image_files`, więc zdjęcie na pozycji N w sklepie to N-ty plik z `image_files` produktu o `reference` równym id ze sklepu źródłowego.
 
 **Archiwum ma mniej niż 1 GB**, choć pełne `img/p` ma ok. 1,2 GB. `make zrzut` pomija w archiwum największe typy miniatur (zwykle `large_default`), aż archiwum zmieści się w limicie, a `make init` tworzy je z oryginałów. Oryginały są w archiwum zawsze.
 

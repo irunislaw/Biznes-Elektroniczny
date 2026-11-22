@@ -20,6 +20,8 @@ LOGGING_PATH = DIRECTORY.parent / "scraper-results"
 
 # Zdjęcia produktów (download_images.py, check_images.py)
 IMAGES_PATH = DIRECTORY.parent / "scraper-results/images"
+# Loga marek (download_images.py)
+BRAND_LOGOS_PATH = IMAGES_PATH / "brands"
 IMAGE_MAX_SIDE_PX = 1600
 IMAGE_MIN_SIDE_PX = 800
 # 300 000 B to ≤300 KB niezależnie od tego, czy 1 KB = 1000 B, czy 1024 B

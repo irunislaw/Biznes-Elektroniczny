@@ -27,6 +27,7 @@ Klucz jest czytany ze zmiennej środowiskowej `PS_WEBSERVICE_KEY` (plik `.env`) 
 | `stock_availables` | GET, PATCH |
 | `configurations` | GET, PATCH |
 | `specific_prices` | GET, POST, PATCH, DELETE |
+| `manufacturers` | GET, POST, DELETE |
 | `product_options` (cechy wariantów) | GET, POST, PATCH, DELETE |
 | `product_option_values` (wartości cech) | GET, POST, DELETE |
 | `combinations` (warianty) | GET, POST, DELETE |
@@ -42,6 +43,13 @@ Uprawnienia ustawia `deploy/import/init_webservice.php` przy `make init`. Plik j
 - **Warianty**: sklep źródłowy nie ma wariantów (każdy kolor czy długość to osobny produkt, a scraper zwraca puste `attributes`), więc warianty są wymyślone i wpisane w `VARIANTS` w `config.py`. Wybrane produkty mają nazwy, które nie przesądzają cechy (np. kabel sprzedawany na metry bez koloru w nazwie). Obecnie 12 produktów ma 33 warianty, z cechami „Kolor”, „Tonacja” i „Rozmiar ukulele”. Produkt dostaje wariant dla każdego zestawienia wartości cech, a pierwszy wariant jest domyślny. Warianty nie zmieniają ceny. Cechy są listą rozwijaną. Cechy i wartości spoza `VARIANTS`, w tym demo („Rozmiar” S–XL, „Dimension”, „Paper Type”), import usuwa.
 - **Stany magazynowe**: losowane z zakresu 0–10 ze stałym ziarnem (`RANDOM_SEED`), więc każdy przebieg daje te same stany. Obecnie stan 0 ma ok. 8% produktów. W produkcie z wariantami ten wylosowany stan jest rozdzielany między warianty (każda sztuka trafia do losowego wariantu, to samo ziarno). Tak jest dlatego, że PrestaShop zapisuje jako stan produktu sumę stanów wariantów: osobne losowanie 0–10 dla każdego wariantu dałoby produkt z 3 wariantami ze stanem do 30. Dzięki podziałowi każdy wariant i każdy produkt ma stan 0–10, a produkt ma stan 0, gdy wszystkie jego warianty mają 0.
 - **Menu górne** (`ps_mainmenu`): pokazuje zaimportowane kategorie główne zamiast kategorii demo.
+- **Marki**: każda marka z pola `brand` w `results.json` to jeden producent (`manufacturers`). Nazwy są ujednolicane: zbędne spacje są usuwane, a wielkość liter nie ma znaczenia przy porównaniu, więc „Bosch” i „BOSCH ” to jeden producent (z pisownią pierwszego produktu). Logo z `brand.logo_file` jest wgrywane przez `images/manufacturers/{id}`. Produkt dostaje producenta w polu `id_manufacturer`, więc sklep pokazuje markę z logo na karcie produktu, a lista marek prowadzi do stron z produktami danej marki. Marki demo (Studio Design, Graphic Corner) są usuwane razem z resztą danych demo.
+- **Marki z mapowania**: produkt bez marki w źródle (`brand: null`) zostaje bez producenta, chyba że ma markę przypisaną w `config.py`: `BRAND_BY_PRODUCT_ID` (id produktu ze sklepu źródłowego, czyli `reference`) albo `BRAND_BY_CATEGORY_ID` (id kategorii głównej ze sklepu źródłowego, `id_category_default`). Mapowanie po produkcie ma pierwszeństwo, a marka ze źródła ma pierwszeństwo przed mapowaniem. Przykład:
+  ```python
+  BRAND_BY_PRODUCT_ID = {6949: "Aquila"}
+  BRAND_BY_CATEGORY_ID = {333: "Harley Benton"}
+  ```
+  Obecnie mapowanie ma 2 produkty Aquila (6949, 6950). Bez marki zostaje brelok 1043, bo sklep źródłowy nie podaje producenta.
 - **Promocje**: produkty, które w sklepie źródłowym mają cenę promocyjną (`sale_price_gross`), dostają obniżkę kwotową (`specific_prices`): obniżka = cena brutto − cena promocyjna brutto. Sklep pokazuje starą cenę, rabat, nową cenę i najniższą cenę z 30 dni przed obniżką (moduł `beomnibus`, opis w [README](../../README.md#omnibus-najniższa-cena-z-30-dni); zmiany cen z importu trafiają do jego historii). Promocję ma 302 z 1161 produktów. Lista zapasowa w `config.py` (dla sytuacji, gdy promocji ze źródła byłoby mniej niż 20) nie jest potrzebna, bo sklep źródłowy ma ich 302.
 
 Wyszukiwarka znajduje zaimportowane produkty bez przebudowy indeksu.
@@ -51,6 +59,7 @@ Import można bezpiecznie uruchomić kilka razy:
 - **Kategorie** są rozpoznawane po kategorii nadrzędnej i `link_rewrite` (pochodzi z adresu kategorii w sklepie źródłowym). Używamy `link_rewrite` zamiast nazwy, bo jest unikalny w obrębie rodzica i nie zmienia się, gdy w sklepie źródłowym zmieni się wyświetlana nazwa. Istniejącej kategorii aktualizowana jest nazwa.
 - **Produkty** są rozpoznawane po `reference` (identyfikator ze sklepu źródłowego). Istniejącemu produktowi aktualizowane są cena, opis, krótki opis i waga. Stan magazynowy jest ustawiany przy każdym przebiegu.
 - **Zdjęcia** są wysyłane tylko produktom, które jeszcze nie mają żadnego zdjęcia, więc się nie dublują.
+- **Marki** są rozpoznawane po nazwie (po ujednoliceniu spacji i wielkości liter), więc istniejący producent nie jest tworzony drugi raz. Logo jest wgrywane tylko producentowi, który jeszcze go nie ma. Produktowi bez marki import nie zmienia `id_manufacturer`, więc producent przypisany ręcznie w panelu zostaje.
 - **Promocje** są rozpoznawane po produkcie (`id_product`). Istniejącej promocji aktualizowana jest wysokość obniżki, a promocja produktu, który w sklepie źródłowym nie ma już ceny promocyjnej, jest usuwana.
 - **Cechy wariantów** są rozpoznawane po nazwie, a **wartości cech** po cesze i nazwie (wielkość liter ma znaczenie). Istniejącej cesze ustawiany jest typ „lista rozwijana”.
 - **Warianty** są rozpoznawane po produkcie i zestawie wartości cech. Istniejący wariant zostaje bez zmian (z tym samym id, więc koszyki i zamówienia dalej na niego wskazują), brakujący jest dodawany, a wariant, którego nie ma w `VARIANTS`, jest usuwany.
@@ -69,12 +78,14 @@ Na końcu logu jest raport:
 
 ```
 Kategorie: utworzono 0, zaktualizowano 61, odrzucono 0
-Produkty: utworzono 0, zaktualizowano 1161, odrzucono 0
-Promocje: utworzono 0, zaktualizowano 302, usunięto 0, odrzucono 0
+Produkty: utworzono 0, zaktualizowano 1169, odrzucono 0
+Promocje: utworzono 0, zaktualizowano 315, usunięto 0, odrzucono 0
+Marki: utworzono 0, istniejące 40, odrzucono 0, wgrane loga 0
+Produkty z marką: ze źródła 1166, z mapowania 2, bez marki 1
 Cechy wariantów: utworzono 0, zaktualizowano 3, usunięto 0, odrzucono 0
 Wartości cech: utworzono 0, usunięto 0, odrzucono 0
 Warianty: utworzono 0, bez zmian 33, usunięto 0, odrzucono 0
-Czas importu: 69.30s
+Czas importu: 87.04s
 ```
 
 Przed raportem log podaje liczbę produktów o stanie 0 i liczbę wariantów o stanie 0.
@@ -87,4 +98,4 @@ Czas importu 1161 produktów: do pustego sklepu ok. 3,5 min, ponownie ok. 1 min 
    ```bash
     make duplikaty
    ```
-Zapytania o duplikaty (produktów, kategorii, promocji, wariantów, cech i wartości cech) nie powinny zwrócić żadnego wiersza. Liczby z ostatniego (produkty, kategorie, zdjęcia, promocje, warianty) powinny być takie same przed i po ponownym imporcie.
+Zapytania o duplikaty (produktów, kategorii, promocji, marek, wariantów, cech i wartości cech) nie powinny zwrócić żadnego wiersza. Liczby z ostatniego (produkty, kategorie, zdjęcia, promocje, warianty, marki) powinny być takie same przed i po ponownym imporcie.

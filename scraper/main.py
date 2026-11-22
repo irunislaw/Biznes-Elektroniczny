@@ -143,6 +143,21 @@ def original_img_url(url):
     return url.replace("-large_default", "")
 
 
+def parse_brand(soup):
+    """Marka z bloku .product-manufacturer: nazwa z alt logo albo z tekstu linku, gdy logo brak."""
+    block = soup.select_one(".product-manufacturer")
+    if block is None:
+        return None
+
+    logo = block.select_one("img")
+    name = logo.get("alt", "") if logo else block.get_text()
+    name = name.strip()
+    if not name:
+        return None
+
+    return {"name": name, "logo_url": logo.get("src") if logo else None}
+
+
 def parse_product(url, html):
     soup = BeautifulSoup(html, "html.parser")
 
@@ -162,6 +177,7 @@ def parse_product(url, html):
         "description_short": data.get("description_short") or "",
         "price_gross": data["price_without_reduction"],
         "sale_price_gross": data["price_amount"] if data["has_discount"] else None,
+        "brand": parse_brand(soup),
         "vat_rate_percent": data.get("rate"),
         "attributes": {f["name"]: f["value"] for f in data["features"]},
         "url": url if url else data.get("link"),

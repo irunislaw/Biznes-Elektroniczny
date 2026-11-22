@@ -114,3 +114,16 @@ def test_product_outside_tree_is_skipped():
     assert results == []
     assert failed == 0
     assert skipped == 1
+
+
+def test_parse_brand():
+    product = Product(**parse_product("", load_fixture(DIRECTORY / "fixtures/page-1.html")))
+    assert product.brand.name == "Harley Benton"
+    assert str(product.brand.logo_url) == "https://gitara-sklep.pl/img/m/3.jpg"
+
+
+def test_product_without_brand():
+    page = load_fixture(DIRECTORY / "fixtures/page-1.html").decode("utf-8")
+    page = page.replace('class="product-manufacturer"', 'class="removed"')
+    product = Product(**parse_product("", page))
+    assert product.brand is None

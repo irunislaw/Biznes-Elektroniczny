@@ -73,6 +73,7 @@ try {
         'product_options' => ['GET' => 1, 'POST' => 1, 'PATCH' => 1, 'DELETE' => 1],
         'product_option_values' => ['GET' => 1, 'POST' => 1, 'DELETE' => 1],
         'combinations' => ['GET' => 1, 'POST' => 1, 'DELETE' => 1],
+        'manufacturers' => ['GET' => 1, 'POST' => 1, 'DELETE' => 1],
     ];
 
     if (!$db->delete(

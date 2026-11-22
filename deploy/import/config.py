@@ -42,3 +42,13 @@ LOGGING_PATH = Path(__file__).parent
 
 MAX_WORKERS = 8
 TIMEOUT = 10
+
+# Marki dla produktów, które w sklepie źródłowym nie mają producenta (brand = null w results.json).
+# Klucz: id produktu ze sklepu źródłowego (reference w sklepie), wartość: nazwa marki.
+BRAND_BY_PRODUCT_ID = {
+    6949: "Aquila",  # Aquila Thundergut 68U Struny do ukulele basowego
+    6950: "Aquila",  # Aquila New Nylgut 10U Struny do ukulele tenorowego
+}
+# Klucz: id kategorii głównej ze sklepu źródłowego (id_category_default), wartość: nazwa marki.
+# Używane, gdy produktu nie ma w BRAND_BY_PRODUCT_ID.
+BRAND_BY_CATEGORY_ID = {}
