@@ -1,7 +1,7 @@
 #!/bin/sh
 # make zrzut: zapisuje dane sklepu po imporcie, żeby make init odtworzył je u innych bez importu.
 #  - deploy/dane/sklep.sql.gz   baza bez kluczy Webservice, klientów, adresów, zamówień, koszyków i logów (do repozytorium),
-#  - deploy/dane/zdjecia.tar    zdjęcia produktów z img/p (do GitHub Releases, nie do repozytorium),
+#  - deploy/dane/zdjecia.tar    zdjęcia produktów z img/p i loga marek z img/m (do GitHub Releases, nie do repozytorium),
 #  - deploy/dane/zdjecia.sha256 suma archiwum, którą make init sprawdza po pobraniu (do repozytorium).
 set -eu
 export MSYS_NO_PATHCONV=1

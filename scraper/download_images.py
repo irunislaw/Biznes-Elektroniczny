@@ -1,4 +1,4 @@
-"""Pobiera zdjęcia produktów z results.json, skaluje je i dopisuje przy produktach listę lokalnych plików.
+"""Pobiera zdjęcia produktów i loga marek z results.json, skaluje je i dopisuje przy produktach lokalne pliki.
 
 Uruchomienie z katalogu scraper/ po main.py:  python download_images.py
 Zdjęcia, które już są w scraper-results/images/, nie są pobierane drugi raz.
@@ -44,24 +44,43 @@ def main(save_results=True):
         config.MAX_ATTEMPTS,
     )
     downloader = ImageDownloader(client, config.IMAGES_PATH)
+    config.BRAND_LOGOS_PATH.mkdir(parents=True, exist_ok=True)
+    logos_prefix = config.BRAND_LOGOS_PATH.relative_to(config.SAVE_PRODUCTS_PATH.parent).as_posix()
+    # Loga są małe (zwykle < 800 px), więc nie są zgłaszane jako małe zdjęcia
+    logo_downloader = ImageDownloader(client, config.BRAND_LOGOS_PATH, min_side=0)
+    # Adres logo -> nazwa pliku (None przy błędzie), żeby logo wspólne dla wielu produktów pobrać raz
+    logo_files = {}
 
     try:
         for number, product in enumerate(products, 1):
             logger.info("Produkt %d/%d: id %d", number, len(products), product.id)
             files = downloader.download(product.id, product.image_urls)
             product.image_files = [f"{prefix}/{name}" for name in files]
+            if product.brand and product.brand.logo_url:
+                url = str(product.brand.logo_url)
+                if url not in logo_files:
+                    logo_files[url] = logo_downloader.download_logo(url)
+                name = logo_files[url]
+                product.brand.logo_file = f"{logos_prefix}/{name}" if name else None
     finally:
         # Także po Ctrl+C: zapisane zdjęcia i tak zostają na dysku, a kolejne uruchomienie je pominie
         if save_results:
             save_products(config.SAVE_PRODUCTS_PATH, products)
         stats = downloader.stats
         logger.info(
-            "Koniec: pobrane %d, pominięte (już były) %d, błędy %d, małe (< %d px) %d",
+            "Koniec: pobrane %d, pominięte (już były) %d, błędy %d, powiększone (dłuższy bok < %d px) %d",
             stats["pobrane"],
             stats["pominięte"],
             stats["błędy"],
             config.IMAGE_MIN_SIDE_PX,
-            stats["małe"],
+            stats["powiększone"],
+        )
+        logos = logo_downloader.stats
+        logger.info(
+            "Loga marek: pobrane %d, pominięte (już były) %d, błędy %d",
+            logos["pobrane"],
+            logos["pominięte"],
+            logos["błędy"],
         )
 
 

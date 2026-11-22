@@ -16,7 +16,7 @@ Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git
    - panel administracyjny: https://localhost:8443/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
    - Mailpit: http://localhost:8025
 
-`make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera.
+`make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera. Klientów i zamówienia można przed tym zachować w kopii zapasowej ([`make backup`](#kopia-zapasowa)).
 
 ## Czas uruchomienia
 Pomiar od `git clone` do działającego sklepu z pełnymi danymi: `git clone`, `cp .env.example .env`, `make up`, `make init`. Limit: 15 min, cel: ≤10 min.
@@ -32,22 +32,23 @@ Produkty nie są importowane na każdym komputerze. Osoba, która zrobiła impor
 | Co | Gdzie | Rozmiar |
 |---|---|---|
 | zrzut bazy | [`deploy/dane/sklep.sql.gz`](deploy/dane/) w repozytorium | do kilku MB |
-| zdjęcia produktów (`img/p`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag `dane-v1` | do 1 GB |
+| zdjęcia produktów (`img/p`) i loga marek (`img/m`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag `dane-v2` | do 1 GB |
 | suma SHA-256 archiwum | [`deploy/dane/zdjecia.sha256`](deploy/dane/) w repozytorium | |
 
 Releases to zakładka GitHuba z plikami do pobrania przypiętymi do tagu. Adres archiwum jest w `ZDJECIA_URL` w `.env`.
 
 ## Co robi `make init`
 Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
-1. czeka, aż instalator PrestaShop skończy pracę,
+1. czeka, aż instalator PrestaShop skończy pracę, i kopiuje do sklepu moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i motyw [`shop/themes/gitara`](shop/themes/gitara/). Robi to przed wczytaniem zrzutu, bo PrestaShop nie uruchamia się, gdy baza ma włączony motyw, którego plików nie ma,
 2. wczytuje zrzut bazy ([`baza.sh wczytaj`](deploy/dane/baza.sh)),
-3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
+3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p`, a loga marek do `img/m` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
-5. kopiuje moduł [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację tego modułu i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+5. kopiuje moduły [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i [`shop/modules/beomnibus`](shop/modules/beomnibus/) (najniższa cena z 30 dni, [Omnibus](#omnibus-najniższa-cena-z-30-dni)) oraz motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułów i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
+6. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
-**Gdy archiwum jest niedostępne** (brak sieci do GitHuba, plik usunięty, prywatne repozytorium bez tokenu), `make init` pobiera zdjęcia z adresów zapisanych przez scraper w `scraper-results/results.json`. Robi to tym samym kodem co scraper (`download_images.py --bez-zapisu` w kontenerze Pythona), więc z tym samym User-Agentem, `robots.txt`, limitem 2 zapytań/s i skalowaniem. Pełny zbiór to ok. 6500 zdjęć, czyli ok. 1 h. Zdjęcia, które już są w `scraper-results/images/`, nie są pobierane. Import wysyła zdjęcia produktu w kolejności `image_files`, więc zdjęcie na pozycji N w sklepie to N-ty plik z `image_files` produktu o `reference` równym id ze sklepu źródłowego.
+**Gdy archiwum jest niedostępne** (brak sieci do GitHuba, plik usunięty, prywatne repozytorium bez tokenu), `make init` pobiera zdjęcia z adresów zapisanych przez scraper w `scraper-results/results.json`. Robi to tym samym kodem co scraper (`download_images.py --bez-zapisu` w kontenerze Pythona), więc z tym samym User-Agentem, `robots.txt`, limitem 2 zapytań/s i skalowaniem. Pełny zbiór to ok. 6500 zdjęć, czyli ok. 1 h. Zdjęcia, które już są w `scraper-results/images/`, nie są pobierane. Tą ścieżką nie wracają loga marek (`img/m`): marki są w bazie, ale bez obrazków, dopóki nie uruchomisz importu, który wgra brakujące loga. Import wysyła zdjęcia produktu w kolejności `image_files`, więc zdjęcie na pozycji N w sklepie to N-ty plik z `image_files` produktu o `reference` równym id ze sklepu źródłowego.
 
 **Archiwum ma mniej niż 1 GB**, choć pełne `img/p` ma ok. 1,2 GB. `make zrzut` pomija w archiwum największe typy miniatur (zwykle `large_default`), aż archiwum zmieści się w limicie, a `make init` tworzy je z oryginałów. Oryginały są w archiwum zawsze.
 
@@ -87,10 +88,36 @@ Co zrzut pomija ([`baza.sh`](deploy/dane/baza.sh), lista `BEZ_DANYCH`):
 
 Na koniec skrypt sprawdza, czy w zrzucie nie ma żadnego klucza Webservice ani e-maila pracownika lub klienta ze sklepu. Jeśli jest, usuwa zrzut i kończy się błędem.
 
+# Kopia zapasowa
+`make backup` zapisuje kopię działającego sklepu do `backups/sklep-<data>_<godzina>.tar`: pełny zrzut bazy (z klientami i zamówieniami), zdjęcia z `img/` i pliki konfiguracyjne sklepu. `make restore PLIK=backups/...` odtwarza z niej sklep na czystym środowisku po `make up`: wczytuje bazę i zdjęcia, ustawia domenę z `.env` i czyści cache. `make init` nie jest wtedy potrzebny.
+
+```bash
+make backup
+make reset
+make up
+make restore PLIK=backups/sklep-2026-11-19_231958.tar
+```
+
+**Kopia nigdy nie trafia do repozytorium**, bo ma dane osobowe klientów, hasła i klucze sklepu. `backups/` jest w `.gitignore`. Zawartość kopii, sposób odtwarzania i różnica między kopią a eksportem ustawień w [`deploy/config/`](deploy/config/) są w [docs/backup.md](docs/backup.md).
+
+## Czas odtworzenia
+Pomiar od `make reset` do działającego sklepu z kopii: `make reset`, `make up`, `make restore`. Kopia z pełnymi danymi i jednym zamówieniem, 1,3 GB.
+
+| Osoba | System | Obrazy Dockera pobrane wcześniej? | `make reset` | `make up` | `make restore` | Razem |
+|---|---|---|---|---|---|---|
+| Michał Irek | Windows 11, Docker Desktop | tak | 7 s | 23 s | 134 s | 164 s (2 min 44 s) |
+
 # Wygląd sklepu
 Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`parent: classic` w `config/theme.yml`). Szablony, JS i CSS dziedziczy po Classic, a własne style są w [`assets/css/custom.css`](shop/themes/gitara/assets/css/custom.css), ładowanym po CSS Classic. `make init` kopiuje motyw do sklepu i włącza go skryptem [`deploy/config/theme.php`](deploy/config/theme.php), więc nie trzeba niczego klikać w panelu. Po zmianie CSS wystarczy `make init`. Plików motywu w kontenerze nie warto edytować, bo następne `make init` je nadpisze.
 
 `theme.yml` ma celowo tylko typy miniatur (identyczne jak w Classic) i układy stron. Włączenie motywu w PrestaShop zastępuje typy miniatur listą z motywu, a sekcja `hooks` przepięłaby moduły według swojej listy i odpięła np. `becookiebanner`.
+
+## Omnibus: najniższa cena z 30 dni
+Przy każdym produkcie w promocji sklep pokazuje „Najniższa cena z 30 dni przed obniżką: …” (dyrektywa Omnibus): na karcie produktu pod ceną, na listach produktów i w koszyku. Robi to własny moduł [`shop/modules/beomnibus`](shop/modules/beomnibus/beomnibus.php), który `make init` instaluje skryptem [`deploy/config/omnibus.php`](deploy/config/omnibus.php). PrestaShop 8.2 nie ma tego w standardzie, a gotowe moduły są płatne albo spoza repozytorium.
+
+- **Historia cen**: tabela `ps_beomnibus_price` (produkt, cena końcowa brutto z promocją, data). Pierwszy wpis to cena w chwili instalacji modułu. Kolejne dopisują hooki `actionObjectProduct…After` i `actionObjectSpecificPrice…After`, czyli każda zmiana produktu albo promocji w panelu, w imporcie i w innym kodzie, ale tylko gdy cena się zmieniła. Historia jest w bazie, więc trafia do zrzutu (`make zrzut`).
+- **Wyliczenie**: początek obecnej obniżki to chwila, od której w historii obowiązuje obecna cena. Wynik to najniższa cena z 30 dni przed tą chwilą (także cena, która obowiązywała na początku tych 30 dni). Gdy sprzed obniżki nie ma żadnego wpisu, wynikiem jest cena regularna. Tak jest dziś przy wszystkich 302 promocjach, bo promocje powstały razem z produktami przy imporcie.
+- **Ograniczenia**: historia jest dla produktu (domyślnego wariantu), bo warianty nie zmieniają ceny. Promocja z datą początku w przyszłości zostanie zapisana dopiero przy następnej zmianie produktu albo promocji (moduł nie ma zadania cron), a ceny dla grup klientów nie są brane pod uwagę.
 
 `make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
 
@@ -102,7 +129,7 @@ Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`sc
 - uzasadnienie wyboru bibliotek: [ADR-0001](docs/adr/0001-biblioteka-scrapera.md)
 
 # Import
-Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia i stany magazynowe z wyników scrapera przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
+Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kategorie, produkty, zdjęcia, promocje i stany magazynowe z wyników scrapera oraz warianty produktów z [`deploy/import/config.py`](deploy/import/config.py) (`VARIANTS`) przez Web Service API. Wymaga uruchomionego sklepu po `make init` oraz klucza `PS_WEBSERVICE_KEY` w `.env`. Do zwykłego uruchomienia sklepu import nie jest potrzebny, bo dane wgrywa `make init` ze zrzutu. Po imporcie zrzut odświeża się przez `make zrzut` ([Dane sklepu](#dane-sklepu)).
 
 - uruchomienie i szczegóły działania: [deploy/import/README.md](deploy/import/README.md)
 
@@ -115,7 +142,10 @@ Po uruchomieniu kontenerów wykonaj w katalogu głównym repozytorium:
 make test
 ```
 
-Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybie headless. Komenda kończy się po zapisaniu wyników.
+Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybie headless. Komenda kończy się po zapisaniu wyników. Testy:
+
+- [`tests/tests/e2eTests.spec.ts`](tests/tests/e2eTests.spec.ts) - pełny zakup: koszyk, wyszukiwanie, rejestracja, zamówienie z płatnością przy odbiorze, historia zamówień i faktura VAT,
+- [`tests/tests/omnibus.spec.ts`](tests/tests/omnibus.spec.ts) - informacja o najniższej cenie z 30 dni: jest przy każdym produkcie na liście „Promocje” i na karcie produktu w promocji, a nie ma jej przy produkcie bez promocji.
 
 - Raport HTML znajdzie się w `tests/playwright-report/index.html`. 
   - Aby go obejrzeć, uruchom `make raport` i wejdź na [http://localhost:9323](http://localhost:9323). 

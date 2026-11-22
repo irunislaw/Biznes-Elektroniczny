@@ -3,6 +3,8 @@ import logging
 import os
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import PurePosixPath
+from urllib.parse import urlsplit
 
 import config
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -40,17 +42,23 @@ def encode_jpeg(img, quality):
     return buffer.getvalue()
 
 
-def resize_image(data, max_side=config.IMAGE_MAX_SIDE_PX, max_bytes=config.IMAGE_MAX_BYTES):
-    """Zmniejsza obraz tak, by dłuższy bok miał ≤ max_side, i zapisuje JPEG ≤ max_bytes.
+def resize_image(
+    data, max_side=config.IMAGE_MAX_SIDE_PX, max_bytes=config.IMAGE_MAX_BYTES, min_side=config.IMAGE_MIN_SIDE_PX
+):
+    """Skaluje obraz tak, by dłuższy bok miał od min_side do max_side, i zapisuje JPEG ≤ max_bytes.
 
-    Mniejsze obrazy nie są powiększane. Jakość spada od START_QUALITY co QUALITY_STEP,
-    aż plik zmieści się w limicie.
+    Większy obraz jest zmniejszany do max_side, a mniejszy powiększany do min_side (proporcje zostają).
+    Jakość spada od START_QUALITY co QUALITY_STEP, aż plik zmieści się w limicie.
     """
     with Image.open(io.BytesIO(data)) as source:
         original_size = source.size
         img = to_rgb(ImageOps.exif_transpose(source))
 
     img.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
+    if max(img.size) < min_side:
+        scale = min_side / max(img.size)
+        larger = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+        img = img.resize(larger, Image.Resampling.LANCZOS)
 
     while True:
         for quality in range(START_QUALITY, MIN_QUALITY - 1, -QUALITY_STEP):
@@ -81,12 +89,26 @@ class ImageDownloader:
         self.min_side = min_side
         self.stats = Counter()
 
-    def log_if_small(self, product_id, url, size):
-        if max(size) < self.min_side:
-            self.stats["małe"] += 1
+    def log_if_upscaled(self, product_id, url, resized):
+        if max(resized.original_size) < self.min_side:
+            self.stats["powiększone"] += 1
             logger.warning(
-                "Małe zdjęcie produktu %s: %dx%d, dłuższy bok < %d px (%s)", product_id, *size, self.min_side, url
+                "Małe zdjęcie produktu %s: %dx%d, dłuższy bok < %d px, powiększone do %dx%d (%s)",
+                product_id,
+                *resized.original_size,
+                self.min_side,
+                *resized.size,
+                url,
             )
+
+    def upscale_saved(self, product_id, url, path):
+        """Zdjęcie zapisane, zanim scraper powiększał małe zdjęcia: powiększa je z pliku, bez pobierania."""
+        with Image.open(path) as saved:
+            if max(saved.size) >= self.min_side:
+                return
+        resized = resize_image(path.read_bytes(), min_side=self.min_side)
+        write_atomic(path, resized.data)
+        self.log_if_upscaled(product_id, url, resized)
 
     def download(self, product_id, image_urls):
         """Zwraca nazwy plików w images_dir w kolejności image_urls; nieudane zdjęcia są pomijane."""
@@ -98,34 +120,47 @@ class ImageDownloader:
 
             if path.exists():
                 self.stats["pominięte"] += 1
-                with Image.open(path) as saved:
-                    self.log_if_small(product_id, url, saved.size)
+                self.upscale_saved(product_id, url, path)
                 files.append(path.name)
                 continue
 
-            response = self.client.get(url)
-            if response is None:
-                self.stats["błędy"] += 1
-                continue
-
-            try:
-                resized = resize_image(response.content)
-            except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
-                self.stats["błędy"] += 1
-                logger.warning("Nie udało się odczytać zdjęcia %s: %s", url, e)
-                continue
-
-            write_atomic(path, resized.data)
-            self.stats["pobrane"] += 1
-            self.log_if_small(product_id, url, resized.original_size)
-            logger.info(
-                "Zapisano %s: %dx%d -> %dx%d, jakość %d, %.1f KB",
-                path.name,
-                *resized.original_size,
-                *resized.size,
-                resized.quality,
-                len(resized.data) / 1024,
-            )
-            files.append(path.name)
+            if self.fetch(url, path, product_id):
+                files.append(path.name)
 
         return files
+
+    def fetch(self, url, path, owner):
+        """Pobiera, skaluje i zapisuje jeden obraz; owner to id produktu albo marki w logu. False przy błędzie."""
+        response = self.client.get(url)
+        if response is None:
+            self.stats["błędy"] += 1
+            return False
+
+        try:
+            resized = resize_image(response.content, min_side=self.min_side)
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
+            self.stats["błędy"] += 1
+            logger.warning("Nie udało się odczytać zdjęcia %s: %s", url, e)
+            return False
+
+        write_atomic(path, resized.data)
+        self.stats["pobrane"] += 1
+        self.log_if_upscaled(owner, url, resized)
+        logger.info(
+            "Zapisano %s: %dx%d -> %dx%d, jakość %d, %.1f KB",
+            path.name,
+            *resized.original_size,
+            *resized.size,
+            resized.quality,
+            len(resized.data) / 1024,
+        )
+        return True
+
+    def download_logo(self, url):
+        """Logo marki jako <nazwa z adresu>.jpg, np. img/m/3.jpg -> 3.jpg; None, gdy się nie pobrało."""
+        url = str(url)
+        path = self.images_dir / (PurePosixPath(urlsplit(url).path).stem + ".jpg")
+        if path.exists():
+            self.stats["pominięte"] += 1
+            return path.name
+        return path.name if self.fetch(url, path, path.stem) else None

@@ -1,11 +1,14 @@
 #!/bin/bash
-# Baza sklepu. Uruchamiane w kontenerze db przez deploy/scripts/init.sh i deploy/scripts/zrzut.sh:
-#   wczytaj  wczytuje /opt/dane/sklep.sql.gz, jeśli w bazie nie ma jeszcze tej wersji zrzutu
+# Baza sklepu. Uruchamiane w kontenerze db przez skrypty z deploy/scripts/:
+#   wczytaj  wczytuje /opt/dane/sklep.sql.gz, jeśli w bazie nie ma jeszcze tej wersji zrzutu (make init)
 #   zrzut    zapisuje bazę bez sekretów i danych osobowych do /tmp/sklep.sql.gz (make zrzut)
 #   oznacz   zapisuje w bazie, że jest w niej wersja danych z /opt/dane/sklep.sql.gz
+#   kopia    zapisuje pełną bazę, z klientami i zamówieniami, do /tmp/kopia.sql.gz (make backup)
+#   odtworz  zastępuje bazę kopią ze standardowego wejścia (make restore)
 set -euo pipefail
 
 ZRZUT=/opt/dane/sklep.sql.gz
+KOPIA=/tmp/kopia.sql.gz
 # Suma SHA-256 wczytanego zrzutu. Dzięki niej drugie make init nie nadpisuje bazy (np. kont z testów),
 # a po zmianie sklep.sql.gz w repozytorium wczytuje nową wersję.
 ZNACZNIK=PROJEKT_ZRZUT_SHA256
@@ -35,9 +38,29 @@ BEZ_DANYCH="
 
 export MYSQL_PWD="$MARIADB_ROOT_PASSWORD"
 sql() { mariadb -uroot "$@"; }
+zrzuc() { mariadb-dump -uroot --single-transaction "$@"; }
 
 suma_zrzutu() {
     sha256sum "$ZRZUT" | cut -d' ' -f1
+}
+
+# Suma zrzutu z repozytorium, z którego pochodzą dane w bazie (pusta, gdy bazy jeszcze nie ma)
+wczytany_zrzut() {
+    sql -N "$MARIADB_DATABASE" -e "SELECT value FROM ps_configuration WHERE name = '$ZNACZNIK'" 2>/dev/null || true
+}
+
+# Ostatni wiersz, który mariadb-dump pisze po udanym zrzucie. Bez niego przerwany zrzut
+# (np. brak miejsca na dysku) wyglądałby na poprawny, bo gzip zamyka plik także po błędzie.
+kompletny() {
+    gunzip -t "$1" && [ "$(gunzip -c "$1" | tail -n 1)" = "-- Dump completed" ]
+}
+
+wczytaj_plik() {
+    if ! kompletny "$1"; then
+        echo "BLAD: $(basename "$1") jest uszkodzony albo niepełny" >&2
+        exit 1
+    fi
+    gunzip -c "$1" | sql "$MARIADB_DATABASE"
 }
 
 oznacz() {
@@ -48,18 +71,16 @@ oznacz() {
 }
 
 wczytaj() {
-    local suma wczytana
+    local suma
     suma=$(suma_zrzutu)
-    wczytana=$(sql -N "$MARIADB_DATABASE" -e "SELECT value FROM ps_configuration WHERE name = '$ZNACZNIK'" 2>/dev/null || true)
 
-    if [ "$wczytana" = "$suma" ]; then
+    if [ "$(wczytany_zrzut)" = "$suma" ]; then
         echo "Baza: ta wersja zrzutu jest już wczytana"
         return
     fi
 
     echo "Baza: wczytuję zrzut $(basename "$ZRZUT") ($(du -h "$ZRZUT" | cut -f1))..."
-    gunzip -t "$ZRZUT"
-    gunzip -c "$ZRZUT" | sql "$MARIADB_DATABASE"
+    wczytaj_plik "$ZRZUT"
     oznacz "$suma"
     echo "Baza: OK"
 }
@@ -75,7 +96,7 @@ zrzut() {
     # Kopia w osobnej bazie, żeby wyczyścić dane bez ruszania działającego sklepu
     echo "Zrzut bazy: kopiuję $zrodlo do tymczasowej bazy $tymczasowa..."
     sql -e "DROP DATABASE IF EXISTS $tymczasowa; CREATE DATABASE $tymczasowa"
-    mariadb-dump -uroot --single-transaction "${pomin[@]}" "$zrodlo" | sql "$tymczasowa"
+    zrzuc "${pomin[@]}" "$zrodlo" | sql "$tymczasowa"
 
     sql "$tymczasowa" <<SQL
 -- Administrator: zostaje pierwszy superadministrator, bez e-maila, hasła i imienia autora zrzutu.
@@ -108,7 +129,7 @@ DELETE FROM ps_configuration WHERE name = '$ZNACZNIK';
 SQL
 
     echo "Zrzut bazy: zapisuję $wyjscie..."
-    mariadb-dump -uroot --single-transaction --skip-dump-date "$tymczasowa" | gzip -9n > "$wyjscie"
+    zrzuc --skip-dump-date "$tymczasowa" | gzip -9n > "$wyjscie"
     sql -e "DROP DATABASE $tymczasowa"
 
     # Kontrola: w zrzucie nie może być żadnego klucza Webservice ani e-maila pracownika lub klienta ze sklepu.
@@ -132,9 +153,49 @@ SQL
     rm -f "$wzorce"
 }
 
+# Cała baza, bez pomijania tabel z BEZ_DANYCH. Plik trafia tylko do backups/, nigdy do repozytorium.
+kopia() {
+    echo "Kopia bazy: zapisuję $MARIADB_DATABASE..."
+    zrzuc --skip-dump-date "$MARIADB_DATABASE" | gzip > "$KOPIA"
+    if ! kompletny "$KOPIA"; then
+        rm -f "$KOPIA"
+        echo "BLAD: zrzut bazy jest niepełny" >&2
+        exit 1
+    fi
+    echo "Kopia bazy: OK ($(du -h "$KOPIA" | cut -f1))"
+}
+
+odtworz() {
+    local kodowanie
+    cat > "$KOPIA"
+    if ! kompletny "$KOPIA"; then
+        rm -f "$KOPIA"
+        echo "BLAD: zrzut bazy w kopii jest uszkodzony albo niepełny. Baza sklepu się nie zmieniła." >&2
+        exit 1
+    fi
+
+    # Baza od nowa, a nie tylko tabele z kopii: inaczej zostałyby tabele, których w kopii nie ma
+    # (np. modułu zainstalowanego po jej zrobieniu). Kodowanie znaków zostaje takie jak było.
+    echo "Baza: zastępuję $MARIADB_DATABASE kopią ($(du -h "$KOPIA" | cut -f1))..."
+    kodowanie=$(sql -N -e "SELECT CONCAT('CHARACTER SET ', DEFAULT_CHARACTER_SET_NAME, ' COLLATE ', DEFAULT_COLLATION_NAME)
+        FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '$MARIADB_DATABASE'")
+    sql -e "DROP DATABASE \`$MARIADB_DATABASE\`; CREATE DATABASE \`$MARIADB_DATABASE\` $kodowanie"
+    wczytaj_plik "$KOPIA"
+    rm -f "$KOPIA"
+    echo "Baza: OK"
+
+    # make init wczytuje zrzut z repozytorium, gdy w bazie jest inna wersja danych, i zastępuje nim całą bazę
+    if [ "$(wczytany_zrzut)" != "$(suma_zrzutu)" ]; then
+        echo "UWAGA: kopia jest z innej wersji danych niż deploy/dane/sklep.sql.gz. Nie uruchamiaj make init," >&2
+        echo "bo zastąpi bazę zrzutem z repozytorium i klienci oraz zamówienia z kopii znikną (docs/backup.md)." >&2
+    fi
+}
+
 case "${1:-}" in
     wczytaj) wczytaj ;;
     zrzut) zrzut ;;
     oznacz) oznacz ;;
-    *) echo "Użycie: $0 wczytaj|zrzut|oznacz" >&2; exit 2 ;;
+    kopia) kopia ;;
+    odtworz) odtworz ;;
+    *) echo "Użycie: $0 wczytaj|zrzut|oznacz|kopia|odtworz" >&2; exit 2 ;;
 esac

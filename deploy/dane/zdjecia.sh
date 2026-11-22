@@ -1,5 +1,5 @@
 #!/bin/bash
-# Zdjęcia produktów w img/p. Uruchamiane w kontenerze prestashop przez deploy/scripts/init.sh i zrzut.sh:
+# Zdjęcia produktów w img/p i loga marek w img/m. Uruchamiane w kontenerze prestashop przez deploy/scripts/init.sh i zrzut.sh:
 #   jest              kod 0, gdy w sklepie są już kompletne zdjęcia z tej wersji danych
 #   pobierz           pobiera archiwum z ZDJECIA_URL i rozpakowuje; kod 3, gdy archiwum jest niedostępne
 #   uzupelnij [KAT]   tworzy brakujące oryginały (z KAT/results.json) i miniatury, w kilku procesach naraz
@@ -8,6 +8,10 @@
 set -euo pipefail
 
 IMG=/var/www/html/img/p
+# Loga marek (producentów): pliki <id>.jpg i <id>-<typ>.jpg. W archiwum są w katalogu marki/,
+# żeby nie mieszały się z katalogami zdjęć produktów 1-9. Pliki bez cyfry na początku (np. pl.jpg)
+# to obrazki zastępcze z instalatora, więc ich nie ruszamy.
+IMG_MARKI=/var/www/html/img/m
 SUMA=/opt/dane/zdjecia.sha256
 ZNACZNIK=$IMG/.zdjecia
 ARCHIWUM=/tmp/zdjecia.tar
@@ -93,9 +97,18 @@ pobierz() {
     echo "Rozpakowuję do img/p..."
     # Katalogi 1-9 to zdjęcia produktów: z danych demo instalatora albo z poprzedniej wersji danych
     find "$IMG" -mindepth 1 -maxdepth 1 -name '[0-9]' -exec rm -rf {} +
-    tar -xf "$ARCHIWUM" -C "$IMG" --no-same-owner
-    rm -f "$ARCHIWUM"
+    tar -xf "$ARCHIWUM" -C "$IMG" --no-same-owner --exclude='marki/*'
     chown -R www-data:www-data "$IMG"
+
+    # Starsze archiwa (dane-v1) nie mają logotypów marek
+    if tar -tf "$ARCHIWUM" --wildcards 'marki/*' >/dev/null 2>&1; then
+        echo "Rozpakowuję loga marek do img/m..."
+        # Loga marek demo instalatora albo z poprzedniej wersji danych
+        find "$IMG_MARKI" -maxdepth 1 -type f -name '[0-9]*' -delete
+        tar -xf "$ARCHIWUM" -C "$IMG_MARKI" --no-same-owner --strip-components=1 --wildcards 'marki/*'
+        chown -R www-data:www-data "$IMG_MARKI"
+    fi
+    rm -f "$ARCHIWUM"
     echo "Zdjęcia z archiwum: OK"
 }
 
@@ -128,9 +141,15 @@ archiwum() {
         exit 1
     fi
 
+    local marki=()
+    marki=("$IMG_MARKI"/[0-9]*.jpg)
+
     local razem typ rozmiar pomin=()
     razem=$(rozmiar_w_tar "${katalogi[@]}")
-    echo "Zdjęcia w img/p: $((razem / 1000000)) MB, limit archiwum: $((LIMIT_BAJTOW / 1000000)) MB"
+    if [ ${#marki[@]} -gt 0 ]; then
+        razem=$((razem + $(rozmiar_w_tar "${marki[@]}")))
+    fi
+    echo "Zdjęcia w img/p i loga w img/m: $((razem / 1000000)) MB, limit archiwum: $((LIMIT_BAJTOW / 1000000)) MB"
 
     # Typy miniatur od największego. Pomijamy je po kolei, aż archiwum zmieści się w limicie.
     while read -r rozmiar typ; do
@@ -153,6 +172,14 @@ archiwum() {
 
     rm -f "$ARCHIWUM"
     tar -cf "$ARCHIWUM" --owner=0 --group=0 --numeric-owner "${pomin[@]}" "${katalogi[@]}"
+    if [ ${#marki[@]} -gt 0 ]; then
+        # Loga dopisujemy jako marki/<plik>, razem z miniaturami (make init tworzy miniatury tylko produktom)
+        tar -rf "$ARCHIWUM" --owner=0 --group=0 --numeric-owner -C "$IMG_MARKI" \
+            --transform 's,^,marki/,' "${marki[@]##*/}"
+        echo "Loga marek w archiwum: ${#marki[@]} plików"
+    else
+        echo "UWAGA: w img/m nie ma logotypów marek, archiwum będzie bez nich" >&2
+    fi
     (cd /tmp && sha256sum "$(basename "$ARCHIWUM")" > /tmp/zdjecia.sha256)
     echo "Archiwum zdjęć: $(du -h "$ARCHIWUM" | cut -f1), $(tar -tf "$ARCHIWUM" | grep -c '\.jpg$') plików JPG"
 }

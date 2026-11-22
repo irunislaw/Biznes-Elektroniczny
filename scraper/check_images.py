@@ -5,7 +5,8 @@ Uruchomienie z katalogu scraper/:
     python check_images.py --seed 7              # to samo losowanie co poprzednio z tym ziarnem
     python check_images.py --dir ../scraper-results/przyklady   # wszystkie pliki z katalogu
 
-Kod wyjścia 1 oznacza, że któreś zdjęcie łamie limity (brak pliku, nie JPEG, > 1600 px, > 300 KB).
+Kod wyjścia 1 oznacza, że któreś zdjęcie łamie limity (brak pliku, nie JPEG, dłuższy bok < 800 px lub > 1600 px,
+> 300 KB).
 """
 
 import argparse
@@ -18,9 +19,10 @@ import config
 from PIL import Image, UnidentifiedImageError
 
 
-def check_file(path, max_side=config.IMAGE_MAX_SIDE_PX, max_bytes=config.IMAGE_MAX_BYTES,
-               min_side=config.IMAGE_MIN_SIDE_PX):
-    result = {"size": None, "bytes": None, "errors": [], "notes": []}
+def check_file(
+    path, max_side=config.IMAGE_MAX_SIDE_PX, max_bytes=config.IMAGE_MAX_BYTES, min_side=config.IMAGE_MIN_SIDE_PX
+):
+    result = {"size": None, "bytes": None, "errors": []}
 
     if not path.is_file():
         result["errors"].append("brak pliku")
@@ -43,7 +45,7 @@ def check_file(path, max_side=config.IMAGE_MAX_SIDE_PX, max_bytes=config.IMAGE_M
     if result["bytes"] > max_bytes:
         result["errors"].append(f"{result['bytes']} B > {max_bytes} B")
     if longer_side < min_side:
-        result["notes"].append(f"małe: dłuższy bok < {min_side} px")
+        result["errors"].append(f"dłuższy bok {longer_side} px < {min_side} px")
 
     return result
 
@@ -52,8 +54,6 @@ def format_row(label, file_name, result):
     size = "{}x{}".format(*result["size"]) if result["size"] else "-"
     kb = f"{result['bytes'] / 1024:.1f}" if result["bytes"] is not None else "-"
     status = "; ".join(result["errors"]) or "OK"
-    if result["notes"]:
-        status += " (" + "; ".join(result["notes"]) + ")"
     return f"{label:>8}  {file_name:<22} {size:>11} {kb:>9}  {status}"
 
 
@@ -95,15 +95,17 @@ def main(argv=None):
         print(f"Wylosowano {len(products)} produktów, ziarno {seed} (powtórzenie: --seed {seed})")
 
     # Tylko znaki z cp1250: konsola Windows nie wypisze "≤" i skrypt by się wywalił
-    print(f"Limity: dłuższy bok <= {config.IMAGE_MAX_SIDE_PX} px, plik <= {config.IMAGE_MAX_BYTES} B; KB = 1024 B\n")
+    print(
+        f"Limity: dłuższy bok od {config.IMAGE_MIN_SIDE_PX} do {config.IMAGE_MAX_SIDE_PX} px, "
+        f"plik <= {config.IMAGE_MAX_BYTES} B; KB = 1024 B\n"
+    )
     print(f"{'Produkt':>8}  {'Plik':<22} {'Wymiary px':>11} {'KB':>9}  Wynik")
 
-    errors, small, checked = 0, 0, []
+    errors, checked = 0, []
     for label, path in entries:
         result = check_file(path)
         print(format_row(label, path.name, result))
         errors += bool(result["errors"])
-        small += bool(result["notes"])
         if result["size"]:
             checked.append(result)
 
@@ -112,11 +114,11 @@ def main(argv=None):
     errors += len(problems)
 
     if checked:
-        largest = max(checked, key=lambda r: max(r["size"]))
+        longer_sides = [max(r["size"]) for r in checked]
         heaviest = max(r["bytes"] for r in checked)
         print(
-            f"\nSprawdzono {len(entries)} plików. Najdłuższy bok: {max(largest['size'])} px, "
-            f"największy plik: {heaviest / 1024:.1f} KB ({heaviest} B), małych zdjęć: {small}"
+            f"\nSprawdzono {len(entries)} plików. Dłuższy bok: od {min(longer_sides)} do {max(longer_sides)} px, "
+            f"największy plik: {heaviest / 1024:.1f} KB ({heaviest} B)"
         )
     print("Wynik: OK" if errors == 0 else f"Wynik: {errors} błędów")
     return 1 if errors else 0

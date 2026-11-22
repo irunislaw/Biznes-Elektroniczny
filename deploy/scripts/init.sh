@@ -1,31 +1,20 @@
 #!/bin/sh
 # make init: dane i konfiguracja sklepu po make up.
-#  1. czeka, aż instalator PrestaShop skończy pracę,
+#  1. czeka, aż instalator PrestaShop skończy pracę, i kopiuje moduł z shop/modules/ i motyw z shop/themes/,
 #  2. wczytuje zrzut bazy deploy/dane/sklep.sql.gz,
 #  3. pobiera archiwum zdjęć z Releases (ZDJECIA_URL), a gdy jest niedostępne, zdjęcia z adresów
 #     w scraper-results/results.json; potem tworzy brakujące miniatury,
 #  4. ustawia domenę, SSL i konto administratora z .env,
-#  5. kopiuje moduł z shop/modules/ i motyw z shop/themes/, uruchamia skrypty konfiguracji
-#     z deploy/config/ (w tym włączenie motywu) i czyści cache.
+#  5. uruchamia skrypty konfiguracji z deploy/config/ (w tym włączenie motywu) i czyści cache.
 # Drugie uruchomienie niczego nie psuje: zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie
 # jest inna wersja danych, a skrypty konfiguracji zmieniają tylko to, co się różni.
 # make init DANE=0 pomija kroki 2 i 3 (sklep zostaje z danymi demo), np. przed nowym importem.
 set -eu
-export MSYS_NO_PATHCONV=1
+# shellcheck source=deploy/scripts/wspolne.sh
+. deploy/scripts/wspolne.sh
 
-COMPOSE=${COMPOSE:-docker compose --env-file .env -f deploy/compose.yaml}
 PYTHON_IMAGE=python:3.13-slim
 DANE=${DANE:-1}
-
-start=$(date +%s)
-
-krok() {
-    printf '\n== %s (%ss)\n' "$1" "$(($(date +%s) - start))"
-}
-
-sklep() { $COMPOSE exec -T prestashop "$@"; }
-sklep_www() { $COMPOSE exec -T -u www-data prestashop "$@"; }
-baza() { $COMPOSE exec -T db "$@"; }
 
 # Zapasowa ścieżka: zdjęcia z adresów zapisanych przez scraper, z tym samym limitem zapytań, User-Agentem
 # i skalowaniem co przy scrapowaniu. Pliki, które już są w scraper-results/images/, nie są pobierane drugi raz.
@@ -45,28 +34,11 @@ pobierz_ze_sklepu_zrodlowego() {
     fi
 }
 
-krok "1/5 Instalacja sklepu"
-if ! $COMPOSE ps --status running --services | grep -qx prestashop; then
-    echo "BLAD: kontener prestashop nie działa. Najpierw make up." >&2
-    exit 1
-fi
-czekam=0
-until sklep sh -c 'test -f app/config/parameters.php && test ! -f install.lock' 2>/dev/null; do
-    if [ "$czekam" -eq 0 ]; then
-        echo "Czekam, aż instalator PrestaShop skończy pracę (postęp: make logs)..."
-    fi
-    if [ "$czekam" -ge 900 ]; then
-        echo "BLAD: instalacja trwa ponad 15 min. Sprawdź make logs." >&2
-        exit 1
-    fi
-    sleep 5
-    czekam=$((czekam + 5))
-done
-if sklep sh -c 'test -d "$PS_FOLDER_INSTALL"'; then
-    echo "BLAD: instalacja PrestaShop się nie powiodła. Zobacz sekcję Problemy w README." >&2
-    exit 1
-fi
-echo "Sklep zainstalowany"
+krok "1/5 Instalacja sklepu, moduł i motyw z repozytorium"
+czekaj_na_sklep
+# Przed wczytaniem zrzutu: gdy zrzut ma włączony motyw gitara, PrestaShop bez jego plików się nie uruchamia,
+# a krok 3 (zdjecia.php) już z niego korzysta
+kopiuj_modul_i_motyw
 
 krok "2/5 Baza danych"
 if [ "$DANE" = 0 ]; then
@@ -105,30 +77,21 @@ krok "4/5 Domena, SSL i administrator z .env"
 sklep php /opt/dane/dopasuj.php
 
 krok "5/5 Konfiguracja sklepu (deploy/config) i cache"
-# Świeża kopia modułu z repozytorium przy każdym make init.
-sklep rm -rf /var/www/html/modules/becookiebanner
-$COMPOSE cp shop/modules/becookiebanner prestashop:/var/www/html/modules/becookiebanner
-sklep chown -R www-data:www-data /var/www/html/modules/becookiebanner
+# Świeża kopia modułów z repozytorium przy każdym make init.
+for modul in becookiebanner beomnibus; do
+    sklep rm -rf "/var/www/html/modules/$modul"
+    $COMPOSE cp "shop/modules/$modul" "prestashop:/var/www/html/modules/$modul"
+    sklep chown -R www-data:www-data "/var/www/html/modules/$modul"
+done
 # To samo dla motywu potomnego. Włącza go theme.php, pierwszy w pętli, bo przy przełączaniu motywu
 # PrestaShop zapisuje od nowa hooki i typy miniatur, a kolejne skrypty mają działać na stanie końcowym.
 sklep rm -rf /var/www/html/themes/gitara
 $COMPOSE cp shop/themes/gitara prestashop:/var/www/html/themes/gitara
 sklep chown -R www-data:www-data /var/www/html/themes/gitara
-for skrypt in theme locale taxes payments carriers mail cookies cms uklad slides; do
+for skrypt in theme locale taxes payments carriers mail cookies omnibus cms uklad slides; do
     sklep php "/opt/prestashop-config/$skrypt.php"
 done
-sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/mails /var/www/html/modules --overwrite=1
-sklep_www mkdir -p /var/www/html/themes/classic/mails
-sklep php bin/console prestashop:mail:generate modern pl-PL /var/www/html/themes/classic/mails \
-    /var/www/html/themes/classic/modules --overwrite=1
+szablony_maili
 sklep php /opt/import/init_webservice.php
-# Skrypty działały jako root, więc cache tworzymy od nowa jako www-data.
-# img/tmp to miniatury z panelu, które mogły zostać po produktach demo.
-sklep sh -c 'rm -rf var/cache/prod var/cache/dev \
-    && mkdir -p var/cache/prod/purifier \
-    && chown -R www-data:www-data var/cache \
-    && find img/tmp -name "*.jpg" -delete'
-echo "Cache: OK"
-
-domena=$(sklep printenv PS_DOMAIN | tr -d '\r')
-printf '\nGotowe w %s s. Sklep: https://%s\n' "$(($(date +%s) - start))" "$domena"
+wyczysc_cache
+gotowe
