@@ -19,7 +19,7 @@ $slides = [
         'category_id' => 55, // Harmonijki ustne.
     ],
     'tc_electronic' => [
-        'image' => 'slide_tc_electrionic.webp',
+        'image' => 'slide_tc_electronic.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Produkty marki tc electronic',
