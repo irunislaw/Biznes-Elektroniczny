@@ -66,6 +66,13 @@ for (const sklep of SKLEPY) {
       await expect(page.locator('.cart-item').first()).toBeVisible();
       await zapisz('4-koszyk');
     });
+
+    await test.step('Zamówienie', async () => {
+      await page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true }).click();
+      await expect(page.locator('body')).toHaveAttribute('id', 'checkout');
+      await expect(page.locator('#checkout-personal-information-step')).toBeVisible();
+      await zapisz('5-zamowienie');
+    });
   });
 }
 
