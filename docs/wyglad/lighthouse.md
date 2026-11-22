@@ -47,6 +47,19 @@ Skąd niższe wyniki (już przed zmianami, nie przez BE-33):
 - **Performance mobile:** LCP 3,6–6,3 s i TBT 350–820 ms. To wynik serwera deweloperskiego w Dockerze i JS
   z Classic, nie samego układu.
 
-## Po
+## Po (2026-11-22, 431b5a3)
 
-Do uzupełnienia po zmianach, tą samą metodą.
+| Strona | Mobile | Desktop |
+|---|---|---|
+| Strona główna | 84 / 97 / 96 / 92 | 97 / 97 / 100 / 92 |
+| Kategoria (Sopranowe) | 80 / 96 / 96 / 92 | 98 / 96 / 100 / 92 |
+| Produkt (UKU-701S NT) | 82 / 97 / 93 / 92 | 98 / 97 / 96 / 92 |
+| Koszyk | 84 / 96 / 100 / 58 | 99 / 96 / 100 / 58 |
+
+Przebiegi Performance mobile: główna 84, 88, 76; kategoria 79, 84, 80;
+produkt 76, 83, 82; koszyk 83, 84, 84.
+
+Główna, kategoria i produkt przekroczyły próg Accessibility 85 w obu trybach. Główna uzyskała
+97 Performance na desktopie przy wymaganym minimum 60. Accessibility produktu wzrosło z 76 do 97.
+Audyty struktury zakładek, nazw przycisków i rozmiaru obszarów klikania przeszły w obu trybach.
+Na produkcie Lighthouse nadal zgłasza niewystarczający kontrast.
