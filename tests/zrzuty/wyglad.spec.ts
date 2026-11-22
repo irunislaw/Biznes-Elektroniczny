@@ -13,6 +13,7 @@ type Sklep = {
   adres: string;
   kategoria: string;
   produkt: string;
+  zrzutZamowienia?: boolean;
 };
 
 const SKLEPY: Sklep[] = [
@@ -27,6 +28,7 @@ const SKLEPY: Sklep[] = [
     adres: process.env.BASE_URL ?? 'https://localhost:8443',
     kategoria: '/11-sopranowe',
     produkt: '/sopranowe/21-ukulele-sopranowe-uku-701s-nt-ever-play.html',
+    zrzutZamowienia: true,
   },
 ];
 
@@ -67,12 +69,17 @@ for (const sklep of SKLEPY) {
       await zapisz('4-koszyk');
     });
 
-    await test.step('Zamówienie', async () => {
-      await page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true }).click();
-      await expect(page.locator('body')).toHaveAttribute('id', 'checkout');
-      await expect(page.locator('#checkout-personal-information-step')).toBeVisible();
-      await zapisz('5-zamowienie');
-    });
+    // Zrzut zamówienia jest wymagany dla naszego sklepu. Porównanie ze źródłem kończy się na koszyku.
+    if (sklep.zrzutZamowienia) {
+      await test.step('Zamówienie', async () => {
+        const link = page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true });
+        await expect(link).toBeVisible();
+        await link.click();
+        await expect(page.locator('body')).toHaveAttribute('id', 'checkout');
+        await expect(page.locator('#checkout-personal-information-step')).toBeVisible();
+        await zapisz('5-zamowienie');
+      });
+    }
   });
 }
 
