@@ -226,3 +226,33 @@ body {
     margin-bottom: 0.5rem;
   }
 }
+
+/* ---- 9. Dostępność: przyciski ilości i paginacja ----
+ * Classic ma przyciski mniejsze niż 24 × 24 px i nakłada dolny na górny o 2 px.
+ * Dwa osobne przyciski 28 × 26 px mają taką samą łączną wysokość jak pole ilości. */
+.bootstrap-touchspin .input-group-btn-vertical > .btn-touchspin {
+  min-width: 24px;
+  min-height: 24px;
+  margin-left: 0;
+}
+
+.bootstrap-touchspin .input-group-btn-vertical .bootstrap-touchspin-down {
+  margin-top: 0;
+}
+
+.bootstrap-touchspin input.form-control,
+.bootstrap-touchspin input.input-group,
+.add-to-cart{
+  min-height: 48px;
+}
+
+
+/* Także jednocyfrowy numer strony ma wygodny obszar klikania. */
+.pagination .page-list a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 4px 6px;
+}

@@ -5,6 +5,7 @@
 // Przy drugim uruchomieniu niczego nie zmienia.
 
 require_once '/var/www/html/config/config.inc.php';
+require_once __DIR__ . '/helpers.php';
 
 // Moduł menu dołącza klasę Ps_MenuTopLinks zwykłym require, więc nie wczytujemy jej osobno
 // (drugie wczytanie kończy się błędem „Cannot declare class”).
@@ -16,35 +17,6 @@ if (!$menu) {
 $context = Context::getContext();
 $idShop = (int) $context->shop->id;
 $db = Db::getInstance();
-
-function ustaw(string $klucz, $wartosc): void
-{
-    if ((string) Configuration::get($klucz) === (string) $wartosc) {
-        return;
-    }
-    if (!Configuration::updateValue($klucz, $wartosc)) {
-        throw new RuntimeException("Nie udalo sie ustawic $klucz");
-    }
-}
-
-// Obrazy sklepu leżą w motywie (shop/themes/gitara/assets), który init.sh kopiuje do sklepu.
-// PrestaShop szuka ich w img/ albo w katalogu modułu, więc kopiujemy je tam, tylko gdy plik się zmienił.
-// Zwraca true, gdy skopiował.
-function skopiuj(string $skad, string $dokad): bool
-{
-    if (!is_file($skad)) {
-        throw new RuntimeException("Brak pliku $skad");
-    }
-    if (is_file($dokad) && md5_file($skad) === md5_file($dokad)) {
-        return false;
-    }
-    if (!copy($skad, $dokad)) {
-        throw new RuntimeException("Nie udalo sie skopiowac $skad do $dokad");
-    }
-    chown($dokad, 'www-data');
-    chgrp($dokad, 'www-data');
-    return true;
-}
 
 $obrazy = _PS_ALL_THEMES_DIR_ . 'gitara/assets/';
 $idKategoriiGlownej = (int) Configuration::get('PS_HOME_CATEGORY');
@@ -131,6 +103,17 @@ if ($wishlist && Module::isEnabled('blockwishlist') && !$wishlist->disable()) {
     throw new RuntimeException('Nie udalo sie wylaczyc blockwishlist');
 }
 
+// P1: wyłącznie modułu blockreassurance z tekstem demo
+if (Module::isEnabled('blockreassurance')) {
+    $reassurance = Module::getInstanceByName('blockreassurance');
+
+    if (!$reassurance || !$reassurance->disable()) {
+        throw new RuntimeException(
+            'Nie udalo sie wylaczyc blockreassurance'
+        );
+    }
+}
+
 // Logo sklepu zamiast „my store” (roznice.md, sekcja 8). Maile i faktury biorą PS_LOGO, gdy nie mają własnego.
 $plikLogo = 'gitara-logo.png';
 skopiuj($obrazy . 'logo.png', _PS_IMG_DIR_ . $plikLogo);
@@ -150,12 +133,12 @@ foreach (['ps_specials', 'ps_newproducts', 'ps_bestsellers'] as $nazwa) {
 }
 
 // Obraz ps_banner zamiast demo „20% OFF ON CLOTHES”. Bez linku moduł prowadzi na stronę główną.
-$plikBanera = 'gitara-baner.jpg';
+$plikBanera = 'gitara-baner.webp';
 $baner = Module::getInstanceByName('ps_banner');
 if (!$baner) {
     throw new RuntimeException('Brak modulu ps_banner');
 }
-skopiuj($obrazy . 'baner.jpg', _PS_MODULE_DIR_ . 'ps_banner/img/' . $plikBanera);
+skopiuj($obrazy . 'baner.webp', _PS_MODULE_DIR_ . 'ps_banner/img/' . $plikBanera);
 foreach (Language::getIDs(false) as $idJezyka) {
     if (Configuration::get('BANNER_IMG', $idJezyka) !== $plikBanera) {
         Configuration::updateValue('BANNER_IMG', [$idJezyka => $plikBanera]);
