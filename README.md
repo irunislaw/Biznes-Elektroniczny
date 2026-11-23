@@ -1,20 +1,25 @@
-# E-commerce website
-E-commerce project to create 1:1 representation of existing shop in PrestaShop 8.x
+# Sklep z instrumentami muzycznymi na PrestaShop
+Projekt zespołowy z przedmiotu Biznes Elektroniczny na Politechnice Gdańskiej. Sklep odwzorowuje asortyment sklepu [gitara-sklep.pl](https://gitara-sklep.pl): kategorie, produkty, zdjęcia, ceny i promocje pobrane scraperem i wgrane do sklepu importem. Zamówienia nie są realizowane, a dane sprzedawcy są fikcyjne.
 
-# authors
- Tymon Dera, Maria Rek, Seweryn Grabowski, Aleksandra Wiśniewska, Michał Irek
+- PrestaShop 8.2.8 (obraz `prestashop/prestashop:8.2.8-8.1-apache`, PHP 8.1), baza MariaDB 10.11
+- kontenery (Docker Compose, [`deploy/compose.yaml`](deploy/compose.yaml)): `prestashop`, `db`, `nginx` (HTTPS), `mailpit` (poczta testowa), `playwright` (testy E2E)
+
+# Skład zespołu
+Tymon Dera, Maria Rek, Seweryn Grabowski, Aleksandra Wiśniewska, Michał Irek
 
 # Uruchomienie
-Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git. Na Windowsie polecenia wpisujemy w Git Bash. Porty 8080, 8443 i 8025 muszą być wolne.
+Wymagania: Docker z Docker Compose v2 (na Windowsie Docker Desktop), `make`, git. Na Windowsie polecenia wpisujemy w Git Bash. Porty 8080, 8443, 8025 i 9323 muszą być wolne.
 
 1. Sklonuj repozytorium i wejdź do jego katalogu.
-2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`). Jeśli repozytorium jest prywatne, wpisz też `GITHUB_TOKEN` (zobacz [Dane sklepu](#dane-sklepu)).
+2. `cp .env.example .env` (opcjonalnie zmień hasła w `.env`). Jeśli repozytorium jest prywatne, wpisz też `GITHUB_TOKEN` (zobacz [Prywatne repozytorium](#prywatne-repozytorium)).
 3. `make up` uruchamia kontenery. Przy pierwszym starcie instalator PrestaShop zakłada sklep. Postęp widać w `make logs`.
-4. `make init` czeka na koniec instalacji i wgrywa dane sklepu: kategorie, produkty, zdjęcia i stany magazynowe. Potem konfiguruje język, walutę, podatki, płatności, przewoźników i pocztę. Można go uruchomić od razu po `make up`.
+4. `make init` czeka na koniec instalacji i wgrywa dane sklepu: kategorie, produkty, zdjęcia i stany magazynowe. Potem włącza motyw i konfiguruje język, walutę, podatki, płatności, przewoźników, pocztę, informację o cookies, Omnibus, strony informacyjne i stronę główną. Można go uruchomić od razu po `make up`.
 5. Adresy:
    - sklep: https://localhost:8443 (http://localhost:8080 przekierowuje na HTTPS)
    - panel administracyjny: https://localhost:8443/admin-panel (login `ADMIN_MAIL` / `ADMIN_PASSWORD` z `.env`)
    - Mailpit: http://localhost:8025
+
+   Przeglądarka ostrzeże o niezaufanym certyfikacie. To normalne: `make up` tworzy certyfikat self-signed dla localhost w `deploy/certs/` (ważny 365 dni, nie trafia do repozytorium).
 
 `make down` zatrzymuje kontenery, dane zostają w wolumenach. `make reset` usuwa kontenery razem z wolumenami (baza i pliki sklepu), więc następne `make up` instaluje sklep od zera. Klientów i zamówienia można przed tym zachować w kopii zapasowej ([`make backup`](#kopia-zapasowa)).
 
@@ -32,7 +37,7 @@ Produkty nie są importowane na każdym komputerze. Osoba, która zrobiła impor
 | Co | Gdzie | Rozmiar |
 |---|---|---|
 | zrzut bazy | [`deploy/dane/sklep.sql.gz`](deploy/dane/) w repozytorium | do kilku MB |
-| zdjęcia produktów (`img/p`) i loga marek (`img/m`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag `dane-v2` | do 1 GB |
+| zdjęcia produktów (`img/p`) i loga marek (`img/m`) | archiwum `zdjecia.tar` w [GitHub Releases](https://github.com/irunislaw/Biznes-Elektroniczny/releases), tag z `ZDJECIA_URL` w `.env.example` (teraz `dane-v5`) | do 1 GB |
 | suma SHA-256 archiwum | [`deploy/dane/zdjecia.sha256`](deploy/dane/) w repozytorium | |
 
 Releases to zakładka GitHuba z plikami do pobrania przypiętymi do tagu. Adres archiwum jest w `ZDJECIA_URL` w `.env`.
@@ -44,7 +49,6 @@ Skrypt [`deploy/scripts/init.sh`](deploy/scripts/init.sh):
 3. pobiera archiwum zdjęć spod `ZDJECIA_URL`, sprawdza jego sumę SHA-256 i rozpakowuje je do `img/p`, a loga marek do `img/m` ([`zdjecia.sh`](deploy/dane/zdjecia.sh)). Potem tworzy brakujące miniatury w tylu procesach, ile rdzeni ma Docker ([`zdjecia.php`](deploy/dane/zdjecia.php)),
 4. ustawia z `.env` domenę i SSL (`PS_SHOP_DOMAIN`, `PS_SHOP_DOMAIN_SSL`, tabela `ps_shop_url`), bo zrzut ma adres z komputera, na którym powstał. Ustawia też e-mail i hasło administratora (`ADMIN_MAIL`, `ADMIN_PASSWORD`) ([`dopasuj.php`](deploy/dane/dopasuj.php)),
 5. kopiuje moduły [`shop/modules/becookiebanner`](shop/modules/becookiebanner/) (pasek z informacją o cookies) i [`shop/modules/beomnibus`](shop/modules/beomnibus/) (najniższa cena z 30 dni, [Omnibus](#omnibus-najniższa-cena-z-30-dni)) oraz motyw [`shop/themes/gitara`](shop/themes/gitara/) do sklepu, uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułów i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
-6. uruchamia skrypty z [`deploy/config/`](deploy/config/) (w tym instalację modułu cookies i włączenie motywu), generuje polskie szablony e-maili, konfiguruje Webservice i czyści cache sklepu.
 
 **Drugie uruchomienie niczego nie psuje.** Zrzut i zdjęcia wczytują się tylko wtedy, gdy w sklepie jest inna wersja danych (suma SHA-256 zrzutu jest zapisana w `ps_configuration`, a suma archiwum w `img/p/.zdjecia`). Konta i zamówienia z testów zostają, a hasło administratora nie jest haszowane od nowa. Po zmianie `sklep.sql.gz` w repozytorium (`git pull`) `make init` wczytuje nową wersję i zastępuje nią bazę. Żeby wrócić do czystych danych, wystarczy `make reset`, `make up` i `make init`.
 
@@ -65,7 +69,7 @@ Jeśli repozytorium nie ma na liście (token fine-grained obejmuje tylko repozyt
 Sprawdzenie tokenu (w Git Bash, token nie trafia do historii poleceń):
 ```bash
 read -rs T && curl -s -H "Authorization: Bearer $T" \
-  https://api.github.com/repos/irunislaw/Biznes-Elektroniczny/releases/tags/dane-v1 | grep '"name"'
+  https://api.github.com/repos/irunislaw/Biznes-Elektroniczny/releases/tags/dane-v5 | grep '"name"'
 ```
 Na liście powinno być `"name": "zdjecia.tar"`.
 
@@ -112,14 +116,14 @@ Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`pare
 
 `theme.yml` ma celowo tylko typy miniatur (identyczne jak w Classic) i układy stron. Włączenie motywu w PrestaShop zastępuje typy miniatur listą z motywu, a sekcja `hooks` przepięłaby moduły według swojej listy i odpięła np. `becookiebanner`.
 
+`make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk, a w naszym sklepie także strona składania zamówienia) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
+
 ## Omnibus: najniższa cena z 30 dni
 Przy każdym produkcie w promocji sklep pokazuje „Najniższa cena z 30 dni przed obniżką: …” (dyrektywa Omnibus): na karcie produktu pod ceną, na listach produktów i w koszyku. Robi to własny moduł [`shop/modules/beomnibus`](shop/modules/beomnibus/beomnibus.php), który `make init` instaluje skryptem [`deploy/config/omnibus.php`](deploy/config/omnibus.php). PrestaShop 8.2 nie ma tego w standardzie, a gotowe moduły są płatne albo spoza repozytorium.
 
 - **Historia cen**: tabela `ps_beomnibus_price` (produkt, cena końcowa brutto z promocją, data). Pierwszy wpis to cena w chwili instalacji modułu. Kolejne dopisują hooki `actionObjectProduct…After` i `actionObjectSpecificPrice…After`, czyli każda zmiana produktu albo promocji w panelu, w imporcie i w innym kodzie, ale tylko gdy cena się zmieniła. Historia jest w bazie, więc trafia do zrzutu (`make zrzut`).
-- **Wyliczenie**: początek obecnej obniżki to chwila, od której w historii obowiązuje obecna cena. Wynik to najniższa cena z 30 dni przed tą chwilą (także cena, która obowiązywała na początku tych 30 dni). Gdy sprzed obniżki nie ma żadnego wpisu, wynikiem jest cena regularna. Tak jest dziś przy wszystkich 302 promocjach, bo promocje powstały razem z produktami przy imporcie.
+- **Wyliczenie**: początek obecnej obniżki to chwila, od której w historii obowiązuje obecna cena. Wynik to najniższa cena z 30 dni przed tą chwilą (także cena, która obowiązywała na początku tych 30 dni). Gdy sprzed obniżki nie ma żadnego wpisu, wynikiem jest cena regularna. Tak jest dziś przy wszystkich promocjach, bo promocje powstały razem z produktami przy imporcie.
 - **Ograniczenia**: historia jest dla produktu (domyślnego wariantu), bo warianty nie zmieniają ceny. Promocja z datą początku w przyszłości zostanie zapisana dopiero przy następnej zmianie produktu albo promocji (moduł nie ma zadania cron), a ceny dla grup klientów nie są brane pod uwagę.
-
-`make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
 
 # Scraper
 Scraper zbierający produkty z oryginalnego sklepu znajduje się w katalogu [`scraper/`](scraper/) i działa niezależnie od kontenerów (wymaga Pythona).
@@ -135,8 +139,8 @@ Skrypt [`deploy/import/import.py`](deploy/import/import.py) wgrywa do sklepu kat
 
 # Testowanie
 
-W pliku `.env` ustaw adres sklepu w `BASE_URL`, np. `BASE_URL=https://localhost:8443` dla lokalnego środowiska z [`.env.example`](.env.example). 
-Po uruchomieniu kontenerów wykonaj w katalogu głównym repozytorium:
+W pliku `.env` sprawdź adres sklepu w `BASE_URL`, np. `BASE_URL=https://localhost:8443` dla lokalnego środowiska z [`.env.example`](.env.example).
+Po `make up` i `make init` (testy potrzebują produktów i promocji ze zrzutu) wykonaj w katalogu głównym repozytorium:
 
 ```sh
 make test
@@ -147,8 +151,8 @@ Playwright uruchamia w kontenerze Chromium, Firefoksa i WebKit po kolei, w trybi
 - [`tests/tests/e2eTests.spec.ts`](tests/tests/e2eTests.spec.ts) - pełny zakup: koszyk, wyszukiwanie, rejestracja, zamówienie z płatnością przy odbiorze, historia zamówień i faktura VAT,
 - [`tests/tests/omnibus.spec.ts`](tests/tests/omnibus.spec.ts) - informacja o najniższej cenie z 30 dni: jest przy każdym produkcie na liście „Promocje” i na karcie produktu w promocji, a nie ma jej przy produkcie bez promocji.
 
-- Raport HTML znajdzie się w `tests/playwright-report/index.html`. 
-  - Aby go obejrzeć, uruchom `make raport` i wejdź na [http://localhost:9323](http://localhost:9323). 
+- Raport HTML znajdzie się w `tests/playwright-report/index.html`.
+  - Aby go obejrzeć, uruchom `make raport` i wejdź na [http://localhost:9323](http://localhost:9323).
   - Serwer raportu zatrzymasz przez `Ctrl+C`.
 - Raport JUnit znajdzie się w `tests/playwright-report/junit-report.xml`.
 - Zrzuty ekranu przy błędach znajdą się w `tests/test-results/`.
