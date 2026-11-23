@@ -116,7 +116,7 @@ Sklep używa motywu potomnego [`shop/themes/gitara`](shop/themes/gitara/) (`pare
 
 `theme.yml` ma celowo tylko typy miniatur (identyczne jak w Classic) i układy stron. Włączenie motywu w PrestaShop zastępuje typy miniatur listą z motywu, a sekcja `hooks` przepięłaby moduły według swojej listy i odpięła np. `becookiebanner`.
 
-`make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
+`make wyglad` robi zrzuty całych stron sklepu źródłowego i naszego (strona główna, kategoria, karta produktu, koszyk, a w naszym sklepie także strona składania zamówienia) na szerokości 1440 i 360 px do [`docs/wyglad/`](docs/wyglad/). Skrypt: [`tests/zrzuty/wyglad.spec.ts`](tests/zrzuty/wyglad.spec.ts). Różnice w układzie i propozycja zakresu zmian: [`docs/wyglad/roznice.md`](docs/wyglad/roznice.md).
 
 ## Omnibus: najniższa cena z 30 dni
 Przy każdym produkcie w promocji sklep pokazuje „Najniższa cena z 30 dni przed obniżką: …” (dyrektywa Omnibus): na karcie produktu pod ceną, na listach produktów i w koszyku. Robi to własny moduł [`shop/modules/beomnibus`](shop/modules/beomnibus/beomnibus.php), który `make init` instaluje skryptem [`deploy/config/omnibus.php`](deploy/config/omnibus.php). PrestaShop 8.2 nie ma tego w standardzie, a gotowe moduły są płatne albo spoza repozytorium.
