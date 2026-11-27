@@ -5,7 +5,7 @@ export async function proceedToDelivery(page: Page) {
   const zipCode = '00-001'
   const city = 'Gdańsk'
 
-  const checkoutLink = page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true });
+  const checkoutLink = page.getByRole('link', { name: 'Realizuj zamówienie', exact: true });
   await expectNoStockErrors(page);
   expect(
     await checkoutLink.isVisible() && await checkoutLink.isEnabled(),
@@ -37,7 +37,7 @@ async function expectNoStockErrors(page: Page) {
 
 export async function chooseRandomCarrier(page: Page) {
   const deliveryForm = page.locator('#checkout-delivery-step form');
-  const carrierNames = ['Kurier', 'Kurier ekspres'];
+  const carrierNames = ['Kurier'];
   const carrierName = carrierNames[Math.floor(Math.random() * carrierNames.length)];
 
   await test.step(`Wybierz przewoźnika: ${carrierName}`, async () => {

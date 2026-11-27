@@ -34,7 +34,7 @@ $pages = [
         'link_rewrite' => 'dostawa',
         'demo' => 'delivery',
         'meta_title' => 'Dostawa',
-        'meta_description' => 'Kurier za 14,99 zł i kurier ekspres za 24,99 zł. Darmowa dostawa powyżej 2000 zł brutto, tylko w Polsce.',
+        'meta_description' => 'Bezpłatny odbiór w sklepie albo kurier za 18,45 zł. Darmowa dostawa kurierem powyżej 2000 zł brutto, tylko w Polsce.',
     ],
     [
         'link_rewrite' => 'polityka-prywatnosci',

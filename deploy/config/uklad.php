@@ -22,13 +22,18 @@ $obrazy = _PS_ALL_THEMES_DIR_ . 'gitara/assets/';
 $idKategoriiGlownej = (int) Configuration::get('PS_HOME_CATEGORY');
 
 // K0: kategoria główna („Katalog produktów” w menu) jak w źródle: nazwa „Katalog produktów Gitara No.1”,
-// adres /2-katalog-produktow-gitara-no1 i obrazek. Nazwa jest w nagłówku tej strony i w tytule drzewa
-// kategorii w lewej kolumnie. Okruszki jej nie pokazują (kategoria główna jest pomijana), a import
+// adres /2-katalog-produktow-gitara-no1, opis pod nazwą i obrazek. Nazwa jest w nagłówku tej strony i w tytule
+// drzewa kategorii w lewej kolumnie. Okruszki jej nie pokazują (kategoria główna jest pomijana), a import
 // (deploy/import/import.py) jej nie zmienia. Musi być przed N1, bo adres w menu zależy od link_rewrite.
 $kategoriaGlowna = new Category($idKategoriiGlownej);
 $zmiana = false;
+$polaKategoriiGlownej = [
+    'name' => 'Katalog produktów Gitara No.1',
+    'link_rewrite' => 'katalog-produktow-gitara-no1',
+    'description' => '<p>Sklep muzyczny Gitara No.1 - oferta sklepu internetowego www.gitara-sklep.pl</p>',
+];
 foreach (Language::getIDs(false) as $idJezyka) {
-    foreach (['name' => 'Katalog produktów Gitara No.1', 'link_rewrite' => 'katalog-produktow-gitara-no1'] as $pole => $wartosc) {
+    foreach ($polaKategoriiGlownej as $pole => $wartosc) {
         if (($kategoriaGlowna->{$pole}[$idJezyka] ?? '') !== $wartosc) {
             $kategoriaGlowna->{$pole}[$idJezyka] = $wartosc;
             $zmiana = true;
@@ -114,6 +119,20 @@ if (Module::isEnabled('blockreassurance')) {
     }
 }
 
+// P4: pod opisem produktu źródło ma tylko blok „Zobacz także” z 3 produktami. U nas była sekcja
+// „Komentarze (0)” (productcomments) i 16 produktów z tej samej kategorii (ps_categoryproducts), przez co
+// karta produktu na telefonie była ponad dwa razy dłuższa niż w źródle. Komentarzy w źródle nie ma wcale,
+// więc moduł jest wyłączony. Produkty z kategorii zostają, ale 3 i z tytułem jak w źródle (tłumaczenie niżej).
+$komentarze = Module::getInstanceByName('productcomments');
+if ($komentarze && Module::isEnabled('productcomments') && !$komentarze->disable()) {
+    throw new RuntimeException('Nie udalo sie wylaczyc productcomments');
+}
+ustaw('CATEGORYPRODUCTS_DISPLAY_PRODUCTS', 3);
+
+// Bez znaczka „Obecnie brak na stanie” na kafelkach, jak w źródle. Produkty bez stanu nadal mają
+// informację o dostępności na karcie produktu i nie da się ich dodać do koszyka.
+ustaw('PS_SHOW_LABEL_OOS_LISTING_PAGES', 0);
+
 // Logo sklepu zamiast „my store” (roznice.md, sekcja 8). Maile i faktury biorą PS_LOGO, gdy nie mają własnego.
 $plikLogo = 'gitara-logo.png';
 skopiuj($obrazy . 'logo.png', _PS_IMG_DIR_ . $plikLogo);
@@ -160,27 +179,44 @@ if (!$menu->isRegisteredInHook('displayHome') && !$menu->registerHook('displayHo
     throw new RuntimeException('Nie udalo sie podpiac ps_mainmenu do strony glownej');
 }
 
-// Kolejność jak w źródle: slider, produkty, obraz sklepu, tekst, menu. Pozostałe moduły (np. dodane
+// Ustawia moduły z listy na początku hooka, w podanej kolejności. Pozostałe moduły (np. dodane
 // później w panelu) zostają za nimi w dotychczasowej kolejności.
-$idHookaGlownej = (int) Hook::getIdByName('displayHome');
-$wHooku = $db->executeS(
-    'SELECT m.name, hm.id_module, hm.position FROM ' . _DB_PREFIX_ . 'hook_module hm
-     JOIN ' . _DB_PREFIX_ . 'module m ON m.id_module = hm.id_module
-     WHERE hm.id_hook = ' . $idHookaGlownej . ' AND hm.id_shop = ' . $idShop . '
-     ORDER BY hm.position'
-);
-$kolejnosc = ['ps_imageslider', 'ps_featuredproducts', 'ps_banner', 'ps_customtext', 'ps_mainmenu'];
-usort($wHooku, function (array $a, array $b) use ($kolejnosc): int {
-    $pa = array_search($a['name'], $kolejnosc, true);
-    $pb = array_search($b['name'], $kolejnosc, true);
-    return [$pa === false ? PHP_INT_MAX : $pa, (int) $a['position']]
-        <=> [$pb === false ? PHP_INT_MAX : $pb, (int) $b['position']];
-});
-foreach ($wHooku as $i => $wiersz) {
-    if ((int) $wiersz['position'] !== $i + 1) {
-        $db->update('hook_module', ['position' => $i + 1],
-            'id_hook = ' . $idHookaGlownej . ' AND id_shop = ' . $idShop . ' AND id_module = ' . (int) $wiersz['id_module']);
+function ustawKolejnosc(string $hook, array $kolejnosc): void
+{
+    $db = Db::getInstance();
+    $idShop = (int) Context::getContext()->shop->id;
+    $idHooka = (int) Hook::getIdByName($hook);
+    $wHooku = $db->executeS(
+        'SELECT m.name, hm.id_module, hm.position FROM ' . _DB_PREFIX_ . 'hook_module hm
+         JOIN ' . _DB_PREFIX_ . 'module m ON m.id_module = hm.id_module
+         WHERE hm.id_hook = ' . $idHooka . ' AND hm.id_shop = ' . $idShop . '
+         ORDER BY hm.position'
+    );
+    usort($wHooku, function (array $a, array $b) use ($kolejnosc): int {
+        $pa = array_search($a['name'], $kolejnosc, true);
+        $pb = array_search($b['name'], $kolejnosc, true);
+        return [$pa === false ? PHP_INT_MAX : $pa, (int) $a['position']]
+            <=> [$pb === false ? PHP_INT_MAX : $pb, (int) $b['position']];
+    });
+    foreach ($wHooku as $i => $wiersz) {
+        if ((int) $wiersz['position'] !== $i + 1) {
+            $db->update('hook_module', ['position' => $i + 1],
+                'id_hook = ' . $idHooka . ' AND id_shop = ' . $idShop . ' AND id_module = ' . (int) $wiersz['id_module']);
+        }
     }
+}
+
+// Kolejność jak w źródle: slider, produkty, obraz sklepu, tekst, menu.
+ustawKolejnosc('displayHome', ['ps_imageslider', 'ps_featuredproducts', 'ps_banner', 'ps_customtext', 'ps_mainmenu']);
+
+// Zgody w formularzu danych klienta (krok „Dane osobowe” w zamówieniu i rejestracja) jak w źródle:
+// oferty partnerów (pole PrestaShop, zawsze pierwsze), newsletter (ps_emailsubscription), regulamin
+// i polityka prywatności (psgdpr). Zgody „Wiadomość o przetwarzaniu danych osobowych” (ps_dataprivacy,
+// z angielskim tekstem modułu) w źródle nie ma, a akceptację polityki prywatności daje już psgdpr.
+ustawKolejnosc('additionalCustomerFormFields', ['ps_emailsubscription', 'psgdpr']);
+$prywatnosc = Module::getInstanceByName('ps_dataprivacy');
+if ($prywatnosc && Module::isEnabled('ps_dataprivacy') && !$prywatnosc->disable()) {
+    throw new RuntimeException('Nie udalo sie wylaczyc ps_dataprivacy');
 }
 
 // „Popularne produkty” pokazują produkty przypisane wprost do kategorii HOME_FEATURED_CAT (tu: strona
@@ -230,15 +266,23 @@ if ($naGlownej === 0) {
     }
 }
 
+// Tłumaczenia nadpisane tak, żeby napisy były jak w źródle.
 // S1: link do korekt płatności w stopce i na stronie „Moje konto” nazwany jak w źródle. PrestaShop 8
 // tłumaczy „Credit slips” jako „Potwierdzenia zwrotów”, a źródło (1.7) jako „Moje pokwitowania - korekty
 // płatności”. Nadpisanie jak z panelu (Międzynarodowe > Tłumaczenia): wiersz w ps_translation bez motywu,
 // w obu domenach, w których jest ten napis (moduł: stopka gościa, motyw: stopka klienta i „Moje konto”).
 // Katalog tłumaczeń jest w cache, więc zmiana jest widoczna po wyczyszczeniu cache (robi to make init).
+// P4: tytuł bloku ps_categoryproducts „Zobacz także” zamiast „16 innych produktów w tej samej kategorii:”.
+// Szablon podstawia liczbę za %s, a tłumaczenie bez %s ją po prostu pomija.
+// K3: przycisk w koszyku i w okienku po dodaniu do koszyka „Realizuj zamówienie” jak w źródle (PrestaShop 8:
+// „Przejdź do realizacji zamówienia”). Testy e2e szukają przycisku po tym tekście (tests/pages/checkout.ts).
 $idPolskiego = (int) Language::getIdByIso('pl');
 $tlumaczenia = [
     ['Credit slips', 'ModulesCustomeraccountlinksAdmin', 'Moje pokwitowania - korekty płatności'],
     ['Credit slips', 'ShopThemeCustomeraccount', 'Moje pokwitowania - korekty płatności'],
+    ['%s other product in the same category:', 'ShopThemeCatalog', 'Zobacz także'],
+    ['%s other products in the same category:', 'ShopThemeCatalog', 'Zobacz także'],
+    ['Proceed to checkout', 'ShopThemeActions', 'Realizuj zamówienie'],
 ];
 foreach ($tlumaczenia as [$klucz, $domena, $tekst]) {
     $warunek = 'id_lang = ' . $idPolskiego . ' AND `key` = "' . pSQL($klucz) . '" AND domain = "' . pSQL($domena) . '" AND theme IS NULL';

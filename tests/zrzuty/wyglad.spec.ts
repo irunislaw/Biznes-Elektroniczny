@@ -72,7 +72,7 @@ for (const sklep of SKLEPY) {
     // Zrzut zamówienia jest wymagany dla naszego sklepu. Porównanie ze źródłem kończy się na koszyku.
     if (sklep.zrzutZamowienia) {
       await test.step('Zamówienie', async () => {
-        const link = page.getByRole('link', { name: 'Przejdź do realizacji zamówienia', exact: true });
+        const link = page.getByRole('link', { name: 'Realizuj zamówienie', exact: true });
         await expect(link).toBeVisible();
         await link.click();
         await expect(page.locator('body')).toHaveAttribute('id', 'checkout');
