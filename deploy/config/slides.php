@@ -3,19 +3,22 @@
 // Treść i linki slajdów zmieniaj tutaj. Kolejność wpisów to kolejność w karuzeli.
 // Klucze dunlop/hohner/tc_electronic identyfikują slajdy: nie zmieniaj ich przy zmianie zdjęcia lub tekstu.
 // Puste title i text oznaczają sam obraz, jak w źródle.
+// manufacturer wskazuje markę po nazwie. category_id jest celem zapasowym, gdy marki nie ma w sklepie.
 $slides = [
     'dunlop' => [
         'image' => 'slide_dunlop.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Produkty marki Dunlop',
-        'category_id' => 16, //tymczasowo link do akcesoriów do ukulele
+        'manufacturer' => 'Dunlop',
+        'category_id' => 16, // Akcesoria do ukulele.
     ],
     'hohner' => [
         'image' => 'slide_hohner.webp',
         'title' => '',
         'text' => '',
         'alt' => 'Harmonijki i instrumenty marki Hohner',
+        'manufacturer' => 'Hohner',
         'category_id' => 55, // Harmonijki ustne.
     ],
     'tc_electronic' => [
@@ -23,7 +26,7 @@ $slides = [
         'title' => '',
         'text' => '',
         'alt' => 'Produkty marki tc electronic',
-        'category_id' => 29, //tymczasowo link do syntezatorów modułowych
+        'category_id' => 29, // Syntezatory modułowe.
     ],
 ];
 
@@ -44,9 +47,21 @@ $katalogModulu = _PS_MODULE_DIR_ . 'ps_imageslider/images/';
 if (!$slides) {
     throw new RuntimeException('Lista slajdow jest pusta');
 }
+$idMarek = [];
 foreach ($slides as $key => $dane) {
     if (!is_file($obrazy . $dane['image'])) {
         throw new RuntimeException('Brak obrazu slajdu: ' . $dane['image']);
+    }
+    if (isset($dane['manufacturer'])) {
+        $idMarki = Manufacturer::getIdByName($dane['manufacturer']);
+        if ($idMarki) {
+            $marka = new Manufacturer($idMarki);
+            if (Validate::isLoadedObject($marka) && $marka->active && $marka->isAssociatedToShop($idShop)) {
+                $idMarek[$key] = $idMarki;
+                continue;
+            }
+        }
+        echo 'UWAGA: brak aktywnej marki ' . $dane['manufacturer'] . " w sklepie, używam kategorii dla slajdu $key\n";
     }
     $kategoria = new Category((int) $dane['category_id']);
     if (!Validate::isLoadedObject($kategoria) || !$kategoria->active || !$kategoria->isAssociatedToShop($idShop)) {
@@ -82,7 +97,9 @@ foreach ($slides as $key => $dane) {
             'title' => $dane['title'],
             'description' => $dane['text'],
             'legend' => $dane['alt'],
-            'url' => $context->link->getCategoryLink((int) $dane['category_id'], null, $idJezyka, null, $idShop),
+            'url' => isset($idMarek[$key])
+                ? $context->link->getManufacturerLink($idMarek[$key], null, $idJezyka, $idShop)
+                : $context->link->getCategoryLink((int) $dane['category_id'], null, $idJezyka, null, $idShop),
         ];
         foreach ($pola as $pole => $wartosc) {
             if (($slide->{$pole}[$idJezyka] ?? '') !== $wartosc) {
