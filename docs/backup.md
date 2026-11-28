@@ -88,7 +88,7 @@ Eksportem ustawień sklepu są skrypty w [`deploy/config/`](../deploy/config/). 
 | [`locale.php`](../deploy/config/locale.php) | domyślny język polski, kraj Polska, waluta PLN |
 | [`taxes.php`](../deploy/config/taxes.php) | włączone podatki, stawki VAT 23, 8, 5 i 0% i ich grupy reguł |
 | [`payments.php`](../deploy/config/payments.php) | przelew (fikcyjne dane konta) i płatność przy odbiorze, faktury, wyłączona płatność czekiem |
-| [`carriers.php`](../deploy/config/carriers.php) | Kurier (14,99 zł) i Kurier ekspres (24,99 zł), darmowa dostawa od 2000 zł, do 50 kg |
+| [`carriers.php`](../deploy/config/carriers.php) | Kurier (18,45 zł, logo `kurier.jpg`) i odbiór w sklepie (za darmo, logo sklepu), darmowa dostawa kurierem od 2000 zł, do 50 kg |
 | [`mail.php`](../deploy/config/mail.php) | wysyłka e-maili przez SMTP do Mailpit |
 | [`cookies.php`](../deploy/config/cookies.php) | instaluje i włącza moduł z informacją o cookies |
 | [`cms.php`](../deploy/config/cms.php) | strony informacyjne (treść w [`cms/`](../deploy/config/cms/)), stopka, nazwa i adres sklepu, tekst na stronie głównej |

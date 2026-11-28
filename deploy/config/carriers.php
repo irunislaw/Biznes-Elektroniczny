@@ -10,9 +10,24 @@ const VAT_RATE = 23;
 const TAX_RULES_GROUP = 'PL Standard Rate (23%)';
 const PAYMENT_MODULES = ['ps_wirepayment', 'ps_cashondelivery'];
 
+// Pierwszy przewoźnik jest domyślny (PS_CARRIER_DEFAULT). is_free: przewoźnik bez opłaty niezależnie
+// od wartości zamówienia, PrestaShop pokazuje przy nim „Za darmo!”. logo: plik z motywu, kopiowany jako
+// logo przewoźnika (img/s/<id>.jpg) i pokazywany przy wyborze dostawy.
 $carriers = [
-    ['name' => 'Kurier', 'delay' => 'Dostawa w 2-3 dni robocze', 'fee_gross' => 14.99],
-    ['name' => 'Kurier ekspres', 'delay' => 'Dostawa w 24 godziny', 'fee_gross' => 24.99],
+    [
+        'name' => 'Kurier',
+        'delay' => 'Wysyłka do 2 dni roboczych',
+        'fee_gross' => 18.45,
+        'is_free' => 0,
+        'logo' => _PS_ALL_THEMES_DIR_ . 'gitara/assets/kurier.jpg',
+    ],
+    [
+        'name' => 'Sklep muzyczny Gitara No.1 - Piaseczno',
+        'delay' => 'Odbiór w sklepie',
+        'fee_gross' => 0,
+        'is_free' => 1,
+        'logo' => _PS_ALL_THEMES_DIR_ . 'gitara/assets/logo.png',
+    ],
 ];
 
 $db = Db::getInstance();
@@ -45,7 +60,7 @@ foreach ($carriers as $data) {
 
     $fields = [
         'active' => 1,
-        'is_free' => 0,
+        'is_free' => $data['is_free'],
         'shipping_handling' => 0,
         'shipping_method' => Carrier::SHIPPING_METHOD_WEIGHT,
         'range_behavior' => 1,
@@ -130,6 +145,23 @@ foreach ($carriers as $data) {
         && !$db->update('delivery', ['price' => $feeNet], $where)
     ) {
         throw new RuntimeException("Nie udalo sie ustawic oplaty dla {$data['name']}");
+    }
+
+    // Logo przewoźnika: PrestaShop pokazuje img/s/<id>.jpg. Konwersja do JPG (przezroczystość na białym tle)
+    // tylko wtedy, gdy logo jeszcze nie ma albo plik w motywie jest nowszy.
+    if (isset($data['logo'])) {
+        $logo = _PS_SHIP_IMG_DIR_ . (int) $carrier->id . '.jpg';
+        if (!is_file($data['logo'])) {
+            throw new RuntimeException("Brak pliku {$data['logo']}");
+        }
+        if (!is_file($logo) || filemtime($data['logo']) > filemtime($logo)) {
+            [$width, $height] = getimagesize($data['logo']);
+            if (!ImageManager::resize($data['logo'], $logo, $width, $height, 'jpg')) {
+                throw new RuntimeException("Nie udalo sie zapisac logo dla {$data['name']}");
+            }
+            chown($logo, 'www-data');
+            chgrp($logo, 'www-data');
+        }
     }
 
     $carrierIds[] = (int) $carrier->id;

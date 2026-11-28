@@ -14,7 +14,6 @@ export async function registerNewUser(page: Page) {
   await page.getByRole('textbox', { name: 'E-mail' }).fill(email);
   await page.getByRole('textbox', { name: 'Pole wprowadzania hasła' }).fill('Haslo Klienta Do Testow');
   await page.getByRole('checkbox', { name: 'Akceptuję ogólne warunki' }).check();
-  await page.getByRole('checkbox', { name: 'Wiadomość o przetwarzaniu' }).check();
 
   await page.getByRole('button', { name: 'Zapisz' }).click();
   await expect(page.getByRole('link', { name: fullName })).toBeVisible();

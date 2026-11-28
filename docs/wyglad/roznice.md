@@ -44,7 +44,7 @@ Kolumna „Jak” oznacza: **CSS** to `custom.css`, **konfiguracja** to skrypt w
 |---|---|---|---|---|
 | K1 | Lista produktów po lewej, podsumowanie i przycisk po prawej. Na telefonie jedno pod drugim. | To samo, na obu szerokościach. | Bez zmian. | 0 |
 | K2 | Pod podsumowaniem nic nie ma. | Blok `blockreassurance` z tekstem demo. | Załatwia to P1. | 0 |
-| K3 | Przycisk „Realizuj zamówienie” ma szerokość tekstu. | „Przejdź do realizacji zamówienia” na całą szerokość kolumny. | Tekst wynika z tłumaczenia nowszej wersji PrestaShop. CSS, opcjonalnie. | 0,5 h |
+| K3 | Przycisk „Realizuj zamówienie” ma szerokość tekstu. | „Przejdź do realizacji zamówienia” na całą szerokość kolumny. | Tekst wynika z tłumaczenia nowszej wersji PrestaShop. CSS, opcjonalnie. Zrobione: tłumaczenie w `uklad.php` i CSS. | 0,5 h |
 
 ## 5. Stopka
 

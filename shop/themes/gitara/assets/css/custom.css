@@ -10,9 +10,14 @@
  * Flex ustawia je w jednym wierszu: menu po lewej, wyszukiwarka po prawej, jak w źródle.
  * Na telefonie (< 768 px) bez zmian: menu jest w hamburgerze, a wyszukiwarka pod logo (N2). */
 @media (min-width: 768px) {
+  /* W źródle menu i wyszukiwarka są na wysokości górnej krawędzi logo, a nie na środku jego wysokości. */
+  #header .header-top > .container > .row:first-of-type {
+    align-items: flex-start;
+  }
+
   #header .header-top-right {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 1rem;
   }
 
@@ -27,6 +32,33 @@
     min-width: 0;
     max-width: none;
   }
+}
+
+/* Pole wyszukiwania jak w źródle (Classic 1.7), na komputerze i na telefonie: białe, z ramką, bez
+ * zaokrągleń, lupa po prawej (ps_searchbar w PrestaShop 8: szare tło, lupa po lewej). Moduł wyłącza
+ * obramowanie fokusu, więc wraca niebieskie obramowanie z Classic 1.7. Ikona czyszczenia (tylko na
+ * telefonie, gdy coś wpisano, inline style z JS modułu) też jest po prawej, więc wtedy lupa znika.
+ * Obie ikony 15 px od krawędzi, jak ikona czyszczenia w module: ikona ma 24 px szerokości razem
+ * z paddingiem, więc glif wystaje w prawo i przy right: 0 obcinał go overflow: auto widżetu. */
+#header #search_widget form input {
+  padding: 10px 2.5rem 10px 10px;
+  color: #232323;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 0;
+}
+
+#header #search_widget form input:focus {
+  outline: 3px solid #24b9d7;
+}
+
+#header #search_widget form i.search {
+  right: 15px;
+  color: #7a7a7a;
+}
+
+#header #search_widget form:has(> i.clear[style*="inline"]) > i.search {
+  display: none;
 }
 
 /* ---- 2. Lista produktów (L1, L2, L4, L5) ----
@@ -52,6 +84,99 @@
   }
 }
 
+/* Cienie „kart” jak w Classic 1.7 (2px 2px 8px, czarny 20%): kafelki produktów na wszystkich stronach,
+ * drzewo kategorii w lewej kolumnie, zdjęcie główne i zakładki Opis/Szczegóły na karcie produktu (W1).
+ * Classic 2.x nie ma żadnych cieni. Krok zamówienia (#checkout) zostaje bez zmian, bo źródła nie da się
+ * porównać (nie składamy tam zamówień). */
+.product-miniature .thumbnail-container,
+.block-categories,
+#product .product-cover img,
+#product .tabs {
+  box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+/* Nagłówek kategorii i karty koszyka mają cień tylko na komputerze. Na telefonie źródło pokazuje je bez
+ * ramki, na tle strony (T1, T2), a Classic 2.x zdejmuje im tam białe tło, więc sam cień wyglądał jak pusta
+ * ramka. */
+@media (min-width: 768px) {
+  .block-category,
+  #cart .cart-grid .card {
+    box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (max-width: 767px) {
+  /* T1: odstęp między nagłówkiem kategorii a listą sortowania, jak w źródle. */
+  .block-category {
+    margin-bottom: 1rem;
+  }
+
+  /* T2: podsumowanie koszyka i przycisk odsunięte od krawędzi, jak w źródle (Classic 2.x: 0). */
+  #cart .cart-grid-right .card-block {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
+
+  /* T3: logo na telefonie jak w źródle, ok. 65 × 48 px (Classic 2.x: najwyżej 32 px wysokości, pasek
+   * najwyżej 50 px). */
+  #header .header-nav {
+    max-height: none;
+  }
+
+  #header .header-nav #_mobile_logo {
+    height: 3.75rem;
+  }
+
+  #header .header-nav #_mobile_logo img {
+    max-height: 3rem;
+  }
+
+  /* T4: przy pustym koszyku (klasa inactive) tylko ikona, bez szarego tła i „(0)”, jak w źródle. Gdy
+   * w koszyku coś jest, zostaje niebieskie tło z liczbą produktów. */
+  #_mobile_cart .blockcart.inactive {
+    background: transparent;
+  }
+
+  #_mobile_cart .blockcart.inactive .cart-products-count {
+    display: none;
+  }
+
+  /* T5: biały jest tylko pasek z logo, a wyszukiwarka stoi pod nim na tle strony, jak w źródle. Menu
+   * z hamburgera (też w .header-top) zostaje na białym tle. */
+  #header .header-top {
+    background: #f6f6f6;
+  }
+
+  /* Cień pod białym paskiem z logo, a nie pod wyszukiwarką. Pasek jest nad .header-top (z-index), żeby
+   * szare tło nie zasłoniło cienia. */
+  #header {
+    box-shadow: none;
+  }
+
+  #header .header-nav {
+    position: relative;
+    z-index: 1;
+    background: #fff;
+    box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.11);
+  }
+
+  #header #mobile_top_menu_wrapper {
+    background: #fff;
+  }
+}
+
+/* Ostatni element okruszków ciemny jak pozostałe, jak w źródle (Classic 2.x: szary #7a7a7a, który na
+ * tle #f6f6f6 ma kontrast poniżej 4,5:1). */
+#wrapper .breadcrumb li:last-child {
+  color: #232323;
+}
+
+/* Nagłówek kategorii bez opisu i bez obrazka (import ich nie przenosi) był pustym białym blokiem
+ * o wysokości 220 px. W źródle blok wypełniają opis i obrazek, więc tu zostaje tylko tytuł. */
+.block-category:not(:has(#category-description, .category-cover)) {
+  min-height: 0;
+}
+
 /* ---- 3. Karta produktu (P1, P2) ----
  * Blok blockreassurance z tekstem demo modułu („Security policy (edit with the Customer
  * Reassurance module)”). Ten sam blok jest pod podsumowaniem koszyka (K2). */
@@ -73,6 +198,119 @@
   color: #232323;
 }
 
+/* P4: „Zobacz także” (ps_categoryproducts, 3 produkty i tytuł w deploy/config/uklad.php) małymi
+ * wielkimi literami jak w źródle. */
+#product .featured-products > h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ---- Koszyk ----
+ * Jak w źródle: tytuł „Koszyk” pogrubiony, nazwa produktu zwykłą czcionką, podsumowanie mniejszą
+ * czcionką i bez pogrubienia kwot, „Razem (brutto)” na szarym tle zamiast linii nad nim, przycisk
+ * „Realizuj zamówienie” (tekst w deploy/config/uklad.php) o szerokości tekstu, na środku (K3; Classic 2.x:
+ * na całą szerokość kolumny). Tylko strona koszyka (#cart). */
+#cart .cart-grid-body .card-block h1 {
+  font-weight: 700;
+}
+
+#cart .product-line-grid-body > .product-line-info > .label {
+  font-weight: 400;
+}
+
+#cart .cart-detailed-subtotals .cart-summary-line:not(:last-child) {
+  margin-bottom: 0.315rem;
+}
+
+#cart .cart-detailed-subtotals .cart-summary-line .label,
+#cart .cart-detailed-subtotals .cart-summary-line .value {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+#cart .card-block.cart-detailed-subtotals + .cart-summary-totals .cart-total {
+  padding: 0.5rem;
+  background: #f6f6f6;
+  border-top: 0;
+}
+
+/* W2: „Razem (brutto)” zaraz pod „Wysyłka”, a przycisk ok. 30 px niżej, jak w źródle (Classic 2.x: 20 px
+ * odstępu nad „Razem” i 8 px nad przyciskiem). */
+#cart .card-block.cart-detailed-subtotals + .cart-summary-totals {
+  padding-top: 0;
+}
+
+#cart .cart-detailed-actions.card-block {
+  padding-top: 1.5rem;
+}
+
+#cart .card-block.checkout .btn-primary {
+  width: auto;
+}
+
+/* Zgody w kroku „Dane osobowe” zamówienia jak w źródle (Classic 1.7): kwadracik w linii z tekstem,
+ * a kolejne linie i opis kursywą zaczynają się od lewej krawędzi. Classic 2.x wcina cały tekst
+ * (padding-left 1.5rem i kwadracik ustawiony absolutnie). Niewidoczne pole input zostaje nad
+ * kwadracikiem, więc kliknięcie i fokus z klawiatury działają jak wcześniej. */
+body#checkout .custom-checkbox > label {
+  padding-left: 0;
+}
+
+body#checkout .custom-checkbox input[type="checkbox"] + span {
+  position: static;
+  margin-top: 0;
+}
+
+/* Nagłówki kroków zamówienia („Dane osobowe”, „Adresy”, „Sposób dostawy”, „Płatność”) jak w źródle
+ * (Classic 1.7): każdy krok to biała karta z cieniem i ciemniejszą dolną krawędzią na całą szerokość,
+ * tytuł 18 px pogrubiony, numer bieżącego kroku zwykłą cyfrą w miejscu znaczka ✓ (Classic 2.x: 24 px,
+ * zielone kółko z numerem, jasna linia pod tytułem wcięta od krawędzi). Link „edytuj” zostaje z Classic. */
+body#checkout section.checkout-step {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.25);
+  box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+body#checkout section.checkout-step:last-child {
+  border-bottom: 0;
+}
+
+body#checkout section.checkout-step .step-title,
+body#checkout section.checkout-step.-current + .checkout-step .step-title,
+body#checkout section.checkout-step.-complete:first-of-type .step-title {
+  padding: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.25;
+  border: 0;
+}
+
+body#checkout section.checkout-step .done,
+body#checkout section.checkout-step .step-number,
+body#checkout section.checkout-step.-reachable.-current .step-number {
+  width: 1.25rem;
+  height: auto;
+  padding: 0;
+  margin-right: 0.875rem;
+  font-size: 1.25rem;
+  vertical-align: bottom;
+}
+
+/* Numer bez marginesu z Classic 2.x (8 px z lewej) i z odstępem mniejszym o szerokość spacji, która stoi
+ * po nim w szablonie, więc tytuły wszystkich kroków zaczynają się w jednej linii. */
+body#checkout section.checkout-step .step-number,
+body#checkout section.checkout-step.-reachable.-current .step-number {
+  margin-left: 0;
+  margin-right: 0.8125rem;
+  justify-content: flex-start;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
 /* ---- 4. Stopka: newsletter po lewej (S2) ----
  * Classic 2.x wyśrodkowuje blok (max-width 50rem, margin auto) i daje duży nagłówek.
  * W źródle napis jest mały i zaczyna się przy lewej krawędzi, w jednej linii z kolumnami stopki. */
@@ -84,6 +322,16 @@
   font-size: 0.9375rem;
   line-height: 1.5rem;
   color: #7a7a7a;
+}
+
+/* Przycisk „Subskrybuj” przylega do pola e-mail, a tekst pod nim ma 14 px, jak w źródle
+ * (Classic 2.x: odstęp 0,5rem i 12 px). */
+#footer .block_newsletter form .row .col-xs-12:first-of-type .btn-primary:first-of-type {
+  margin-left: 0;
+}
+
+#footer .block_newsletter form p {
+  font-size: 0.875rem;
 }
 
 /* ---- 5. Czcionka Noto Sans jak w źródle (Classic z PrestaShop 1.7) ----
@@ -172,9 +420,17 @@ body {
   font-weight: 700;
 }
 
-/* Strona główna: cień pod kafelkami „Popularnych produktów”, taki jak w źródle (Classic 1.7). */
-#index .product-miniature .thumbnail-container {
-  box-shadow: 2px 2px 8px 0 rgba(0, 0, 0, 0.2);
+/* W3: długa nazwa w drzewie kategorii („Syntezatory i keyboardy”) zawija się przed przyciskiem „+”,
+ * zamiast na niego nachodzić. Przycisk jest ustawiony absolutnie przy prawej krawędzi. */
+.block-categories .category-sub-menu li:has(> .collapse-icons) > a {
+  display: block;
+  padding-right: 1.75rem;
+}
+
+/* Tytuł tekstu o sklepie pogrubiony jak w źródle. Classic 2.x ma 500, a Noto Sans jest tylko w 400 i 700,
+ * więc przeglądarka pokazywała go zwykłą czcionką. */
+#custom-text h2 {
+  font-weight: 700;
 }
 
 /* Tytuły sekcji z produktami („Popularne produkty”) pogrubione, jak w źródle (Classic 2.x: 500, 21 px).
@@ -214,6 +470,11 @@ body {
 
 /* Odstępy jak w źródle: stopka 20 px od góry (+ 20 px marginesu), tytuły bloków 8 px nad linkami
  * (Classic 2.x: 40 px i 16 px). Na telefonie bloki są zwijane i zostają bez zmian. */
+/* Cień nad stopką oddziela ją od newslettera, jak w źródle (Classic 1.7). */
+.footer-container {
+  box-shadow: 2px 0 5px 0 rgba(0, 0, 0, 0.39);
+}
+
 @media (min-width: 768px) {
   .footer-container {
     margin-top: 1.25rem;
