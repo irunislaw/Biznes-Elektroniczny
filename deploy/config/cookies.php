@@ -14,15 +14,19 @@ if (!$module) {
 }
 
 if (!Module::isInstalled($moduleName)) {
+    // install() podpina hooki. Drugi registerHook w tym samym procesie wywala się na nowym hooku
+    // (PrestaShop 8.2 nie czyści cache id hooków z aliasami), szczegóły w omnibus.php.
     if (!$module->install()) {
         throw new RuntimeException("Nie udalo sie zainstalowac modulu $moduleName: " . implode('; ', $module->getErrors()));
     }
-} elseif (!Module::isEnabled($moduleName) && !$module->enable()) {
-    throw new RuntimeException("Nie udalo sie wlaczyc modulu $moduleName");
-}
-
-if (!$module->registerHook(BeCookieBanner::HOOKS)) {
-    throw new RuntimeException("Nie udalo sie podpiac modulu $moduleName do hookow");
+} else {
+    if (!Module::isEnabled($moduleName) && !$module->enable()) {
+        throw new RuntimeException("Nie udalo sie wlaczyc modulu $moduleName");
+    }
+    // Moduł już był: dopina hooki dodane w nowszej wersji kodu
+    if (!$module->registerHook(BeCookieBanner::HOOKS)) {
+        throw new RuntimeException("Nie udalo sie podpiac modulu $moduleName do hookow");
+    }
 }
 
 echo "Informacja o cookies ($moduleName): OK\n";
